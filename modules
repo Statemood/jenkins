@@ -76,20 +76,21 @@ check(){
             fi
             ;;
         user)  
+            allowed_groups=$CONFIG_DIR/permission/groups
+            if grep -q "^${BUILD_USER_ID}$" $allowed_groups/ops-core
+            then
+                msg info "Permission always granted for You"
+                return 0
+            fi
+
             for allow in $ALLOWED_USERS
             do
-                allowed_file=$CONFIG_DIR/permission/groups/$allow
+                allowed_file=$allowed_groups/$allow
                 if [ -f $allowed_file ]
                 then
                     if grep -q "^${BUILD_USER_ID}$" $allowed_file
                     then
                         msg info "Permission granted for group"
-                        return 0
-                    fi
-                    
-                    if grep -q "^${BUILD_USER_ID}$" $(dirname $allowed_file)/ops-core
-                    then
-                        msg info "Permission always granted for Core OPS"
                         return 0
                     fi
                 fi
