@@ -1,0 +1,85 @@
+#! /bin/bash
+
+case `uname -s` in
+    Darwin)
+        NODE_OS="OSX"
+        TMP_DIR=/tmp/jenkins
+        ;;
+    Linux)
+        NODE_OS="`uname -s`"
+        TMP_DIR="/dev/shm/jenkins"
+        ;;
+esac
+
+test -d $TMP_DIR || mkdir -p $TMP_DIR
+
+CONFIG_DIR=/data/apps/jenkins/config
+ BUILD_LOG=$JENKINS_HOME/jobs/$JOB_NAME/builds/$BUILD_NUMBER/log
+
+if [ -f "$BUILD_LOG" ]
+then
+    BUILD_USER=`head -1 $BUILD_LOG | awk -F '0m' '{print $2}'`
+fi
+
+APP_PRJ="`echo $JOB_NAME | awk -F '_' '{print $1}'`"
+APP_OBJ="`echo $JOB_NAME | awk -F '_' '{print $2}'`"
+APP_ENV="`echo $JOB_NAME | awk -F '_' '{print $3}'`"
+APP_ACT="`echo $JOB_NAME | awk -F '_' '{print $4}'`"
+APP_TGT="`echo $JOB_NAME | awk -F '_' '{print $5}'`"
+
+### Android
+
+# Gradle
+GRADLE_PROPERTIES=$(dirname $ANDROID_SDK_LOCAL_FILE)/gradle.properties
+
+###
+    PING_SET="sudo sysctl -w net.ipv4.icmp_echo_ignore_all"
+ PING_ENABLE="$PING_SET=0"
+PING_DISABLE="$PING_SET=1"
+
+### Command Tools
+# JAVA
+JARCTL=/usr/local/bin/jarctl
+
+# Resin 
+RESINCTL=/usr/local/resin/bin/resinctl
+
+### Maven ###
+MAVEN=/data/apps/tools/apache-maven-3.3.9/bin/mvn
+
+# Default Settings
+ SSH_USER=
+ SSH_PORT=
+ SSH_OPTS=""
+
+SCP_SPEED=30720
+ WEB_ROOT=
+
+### NGINX & HTTP Settings
+HTTP_PORT=
+
+# Nginx Status URL, eg. /nginx_status
+ NGX_STAT=
+
+  NGX_DIR=/usr/local/nginx
+ NGX_SBIN=$NGX_DIR/sbin/nginx
+
+# CURL
+      NGX_CC_RETRY=2
+NGX_CC_RETRY_DELAY=1
+   NGX_CC_MAX_TIME=1
+         NGX_CC_CT=2
+
+# nginx_stat_check
+    NSC_HTTP_PORT=80
+     NSC_HTTP_URL="/"
+
+mf=$CONFIG_DIR/modules
+
+if [ -f "$mf" ]
+then
+    . $mf
+else
+    echo -e "Error: $mf does not exist"
+    exit 1
+fi
