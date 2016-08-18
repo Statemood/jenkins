@@ -1,0 +1,221 @@
+#! /bin/bash -
+
+msg(){
+    echo -e "`date +'%F %T'` `echo $1 | tr -t a-z A-Z`: $2"
+    case $1 in
+        error)
+            exit 1
+            ;;
+        info)
+            return 0
+            ;;
+        warning)
+            return 0
+            ;;
+        space)
+            return 0
+            ;;
+    esac
+}
+
+SSH(){
+    # SSH "CMD"
+    if [ -z "$1" ]
+    then
+        msg error "require argument"
+    fi
+    ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST "$1"
+}
+
+SCP(){
+    # SCP local-file remote-path
+    if [ -z "$2" ]
+    then
+        msg error "require argument"
+    fi
+    
+    test -f "$1" || msg error "File $1 not found"
+    
+    msg info "Uploading '$(basename $1)' to $2"
+    scp -P $SSH_PORT -l $SCP_SPEED $1 $SSH_USER@$SSH_HOST:$2
+}
+
+GET(){
+    # GET remote-path local-path
+    if [ -z "$2" ]
+    then
+        msg error "require argument"
+    fi
+    
+    local_dir="$(dirname $2)" 
+
+    if [ "$local_dir" != "." ]   
+    then
+        test -d $local_dir || mkdir -p $local_dir
+    fi
+
+    msg info "Uploading '$(basename $1)' to $2"
+    scp -P $SSH_PORT -l $SCP_SPEED $SSH_USER@$SSH_HOST:$1 $2
+}
+
+check(){
+    case $1 in
+        args)
+            if [ "$3" -lt "$2" ]
+            then
+                echo "Error: Missing arguments, required $2, detected $3"
+                return 1
+            fi
+    
+            return 0
+            ;;
+        file)
+            if [ ! -f "$2" ]
+            then
+                msg error "File does not exist: $2"
+            fi
+            ;;
+        user)  
+            for allow in $ALLOWED_USERS
+            do
+                allowed_file=$CONFIG_DIR/permission/groups/$allow
+                if [ -f $allowed_file ]
+                then
+                    if grep -q "^${BUILD_USER}$" $allowed_file
+                    then
+                        msg info "Permission granted for group"
+                        return 0
+                    fi
+                fi
+
+                if [ "$BUILD_USER" = "$allow" ]
+                then    
+                    msg info "Permission granted for user"
+                    return 0
+                fi
+            done
+
+            msg error "Dear $BUILD_USER, you don't have permission to build $JOB_NAME. Aborted."
+            ;;
+        return)
+            rt_code="$?"
+
+            if [ $rt_code != 0 ]
+            then
+                msg error "Detected failure in last step"
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+fsize(){
+    if [ -f "$1" ]
+    then
+        du -h "$1" | awk '{print $1}'
+    else
+        msg warning "File $1 not found"
+    fi
+}
+
+nginx_status_check(){
+    # ncc www.abc.com 172.16.0.1 80 /url -s("curl opts")
+
+    CURL_OPTS="-s --retry $NGX_CC_RETRY --retry-delay $NGX_CC_RETRY_DELAY -m $NGX_CC_MAX_TIME"
+    CURL_INFO="$NSC_HTTP_HOST:$NSC_HTTP_PORT:$NSC_HTTP_IP $NSC_HTTP_HOST:$NSC_HTTP_PORT$NSC_HTTP_URL"
+    CURL_EXEC="curl --connect-timeout $NGX_CC_CT $CURL_OPTS --resolve $CURL_INFO"
+
+    if [ "$NSC_CURL_ECHO" = "slient" ]
+    then
+        $CURL_EXEC > /dev/null
+    else 
+        $CURL_EXEC
+    fi
+
+    NGX_CC_STAT=$?
+}
+
+NGX_STAT="ps aux | grep -v 'grep ' | grep -q 'nginx'"
+
+nginx_start(){
+    SSH "$NGX_STAT || /usr/bin/sudo $NGX_SBIN"
+}
+
+nginx_stop(){
+    SSH "$NGX_STAT && /usr/bin/sudo killall nginx"
+}
+
+nginx_reload(){
+    SSH "$NGX_STAT && /usr/bin/sudo $NGX_SBIN -s reload || $NGX_SBIN"
+}
+
+# Rollback Maven project
+mp_rollback(){
+          PROJECT="$APP_PRJ-$project-app"
+          RBD2_ID=`echo $CHOICE_ONE | awk -F '/' '{print $6}'`
+         RBD_NAME=`echo $CHOICE_ONE | awk -F '/' '{print $5}'`
+
+       CLASS_NAME="${MOSAI_CLASS}.${APP_PRJ}"
+      MODULES_DIR="$JENKINS_HOME/jobs/${RBD_NAME}/modules" 
+       BUILDS_DIR="${MODULES_DIR}/${CLASS_NAME}\$${PROJECT}/builds/$RBD2_ID"
+      ARCHIVE_DIR="${BUILDS_DIR}/archive/${CLASS_NAME}/${PROJECT}"
+         SNAPSHOT=`grep "Building $PROJECT" $BUILDS_DIR/log | awk -F "$PROJECT " '{print $2}'`
+    ROLLBACK_FILE=$ARCHIVE_DIR/$SNAPSHOT/${PROJECT}-${SNAPSHOT}.war
+}
+
+# Deploy Maven project
+mp_deploy(){
+     pj=${APP_PRJ}-${project}-app
+    sta=`date +%s`
+    # Offline service: Step 1
+    NSC_HTTP_URL="/nginx_status"    
+
+    msg info "Get Active connections, waiting: `nginx_status_check | tail -1`"  
+    msg info "Preparing to offline $srv(Stop Nginx)"
+     
+    if [ $dp_count = 0 ]
+    then
+        nginx_stop
+        while true
+        do
+            nginx_status_check
+            if [ $NGX_CC_STAT != 0 ]
+            then 
+                msg info "Nginx is down(server $srv)"
+                break 
+            else
+                sleep 3
+                continue 
+            fi
+        done
+
+        while true
+        do
+            stp=`date +%s`
+            ust=`echo $stp - $sta | bc`
+            
+            if [ $ust -ge $WAIT_TIME ]
+            then
+                msg info "Time up! Ready to deploy for $srv(${ust}s)"
+                break
+            else
+                msg info "Waiting for $srv(${ust}s) ..."
+                sleep 5
+                continue
+            fi
+        done
+    fi
+    # Uploading
+
+    msg info "Uploading $pj to $srv"
+    SCP $app $WEB_ROOT/resin/${pj}.war
+}
+
+remove (){
+    if [ -f "$1" ]
+    then
+        rm -rf "$1"
+    else
+        msg warning "File not found: $1"
+    fi
+}
