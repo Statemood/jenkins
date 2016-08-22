@@ -1,7 +1,7 @@
 #! /bin/bash -
 
 msg(){
-    echo -e "`date +'%F %T'` `echo $1 | tr -t a-z A-Z`: $2"
+    echo -e "`date +'%F %T'` `echo $1 | tr a-z A-Z`: $2"
     case $1 in
         error)
             exit 1
@@ -76,12 +76,18 @@ check(){
             fi
             ;;
         user)  
-            allowed_groups=$CONFIG_DIR/permission/groups
-            if grep -q "^${BUILD_USER_ID}$" $allowed_groups/ops-core
-            then
-                msg info "Permission always granted for You"
-                return 0
-            fi
+            allowed_groups=$PERMISSION_DIR_GROUPS
+
+            for aug in $ALWAYS_ALLOWED_GROUPS
+            do
+                if grep -q "^${BUILD_USER_ID}$" $allowed_groups/$aug
+                then
+                    msg info "Permission always granted for You"
+                    return 0
+                else
+                    msg info "Skip"
+                fi
+            done
 
             for allow in $ALLOWED_USERS
             do
@@ -224,5 +230,61 @@ remove (){
         rm -rf "$1"
     else
         msg warning "File not found: $1"
+    fi
+}
+
+docker_container_ctl(){
+    # Let link_opt="" if without link options
+
+    # Stop & remove old container    
+    dc_oid=`SSH "sudo docker ps -a | grep $container_name" | awk '{print $1}' | head -1`  
+        
+    if [ "X$dc_oid" = "X" ]
+    then
+        msg warning "Container id not found"
+    else
+        dc_oip=`SSH "sudo docker inspect -f '{{.NetworkSettings.IPAddress}}' $dc_oid"`
+
+        msg info "Stop & remove old container id=$dc_oid, ip=$dc_oip"
+        SSH "sudo docker stop $dc_oid"
+        SSH "sudo docker rm $dc_oid"
+    fi
+
+    img_name="`echo $docker_tag | awk -F ':' '{print $1}'`"
+     img_tag="`echo $docker_tag | awk -F ':' '{print $2}'`"
+      img_id=`SSH "sudo docker images | grep $img_name | grep $img_tag | awk '{print $3}'"`
+        
+    SSH "sudo docker images" | grep $docker_tag | awk '{print $3}'
+    msg info "Removing old image, id $img_id"
+
+    if [ "X$img_id" != "X" ]
+    then
+        SSH "sudo docker rmi $img_id"
+    fi
+
+    SSH "sudo docker run -d --name $container_name $link_opts $docker_tag /run.sh"
+
+    dc_nid=`SSH "sudo docker ps -a | grep $container_name" | awk '{print $1}'`
+
+    if [ "X$dc_nid" != "X" ]
+    then
+        dc_nip=`SSH "sudo docker inspect -f '{{.NetworkSettings.IPAddress}}' $dc_nid"`
+        
+        msg info "New container id=$dc_nid, ip=$dc_nip"
+    else
+        msg error "Failed to start container $container_name use image $docker_tag"
+    fi 
+    
+    if [ "X$dc_oip" != "X" ] && [ "X$dc_nip" != "X" ] && [ "$dc_oip" != "$dc_nip" ]
+    then
+        msg warning "Container IP has been changed to $dc_nip from old IP $dc_oip"
+        
+        msg info "Preparing to update Nginx settings"
+        SSH "sed -i \"s/$dc_oip/$dc_nip/g\" $ngx_vhosts_conf"
+        
+        msg warning "Reloading Nginx"
+        SSH "sudo $NGX_DIR/sbin/nginx -s reload"
+    else
+        msg info "IP still using $dc_nip by $container_name"
     fi
 }
