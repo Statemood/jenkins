@@ -1,20 +1,28 @@
 #! /bin/bash
 
+CONFIG_DIR=/data/apps/jenkins/config
+
 case `uname -s` in
     Darwin)
         NODE_OS="OSX"
         TMP_DIR=/tmp/jenkins
+        
+        BIN_SED=/usr/local/bin/sed
+        BIN_MD5=md5
         ;;
     Linux)
         NODE_OS="`uname -s`"
         TMP_DIR="/dev/shm/jenkins"
+
+
+        BIN_SED=sed
+        BIN_MD5=md5sum
         ;;
 esac
 
 test -d $TMP_DIR || mkdir -p $TMP_DIR
 
-CONFIG_DIR=/data/apps/jenkins/config
- BUILD_LOG=$JENKINS_HOME/jobs/$JOB_NAME/builds/$BUILD_NUMBER/log
+BUILD_LOG=$JENKINS_HOME/jobs/$JOB_NAME/builds/$BUILD_NUMBER/log
 
 if [ -f "$BUILD_LOG" ]
 then
@@ -26,8 +34,47 @@ APP_OBJ="`echo $JOB_NAME | awk -F '_' '{print $2}'`"
 APP_ENV="`echo $JOB_NAME | awk -F '_' '{print $3}'`"
 APP_ACT="`echo $JOB_NAME | awk -F '_' '{print $4}'`"
 APP_TGT="`echo $JOB_NAME | awk -F '_' '{print $5}'`"
+  
+app_env="`echo $APP_ENV  | tr A-Z a-z`"
+
+
+# COMPANY info
+COMPANY_NAME_EN=""
+
+
+### Jenkins
+    JKS_RUN_USER=jenkins
+
+      JKS_DL_URL=
+JKS_DOWNLOAD_URL=$JKS_DL_URL
+
+      JKS_DL_DIR=/data/www/packages
+
+JKS_AGENT_DOCKER_01=
+JKS_AGENT_MACOSX_01=
+
+# OSX Auth
+OSX_KEYCHAIN_AUTH_FILE=$CONFIG_DIR/auth/osx-keychain.auth
+     OSX_KEYCHAIN_FILE=/Users/jenkins/Library/Keychains/login.keychain
 
 ### Android
+ANDROID_SDK_LOCAL_FILE=$CONFIG_DIR/project/$APP_PRJ/Android/local.properties
+
+ANDROID_APK_DIR=app/build/outputs/apk
+ANDROID_APK_SAVE_URL=Android/apk/`date +%Y/%m/%d`
+ANDROID_APK_SAVE_DIR=$JKS_DL_DIR/$ANDROID_APK_SAVE_URL
+
+ANDROID_PRE_IM_UPLOAD_KEY=
+ANDROID_PRE_IM_UPLOAD_URL=
+
+
+### iOS
+iOS_IPA_SAVE_URL=iOS/ipa/`date +%Y/%m/%d`
+iOS_IPA_SAVE_DIR=$JKS_DL_DIR/$iOS_IPA_SAVE_URL
+
+                 iOS_DEV_CSI=""
+iOS_DEV_PROVISIONING_PROFILE=""
+
 
 # Gradle
 GRADLE_PROPERTIES=$(dirname $ANDROID_SDK_LOCAL_FILE)/gradle.properties
@@ -37,42 +84,60 @@ GRADLE_PROPERTIES=$(dirname $ANDROID_SDK_LOCAL_FILE)/gradle.properties
  PING_ENABLE="$PING_SET=0"
 PING_DISABLE="$PING_SET=1"
 
+### Docker
+DOCKER_TAG=latest
+DOCKER_HUB=
+DOCKER_REPOSITORY=$DOCKER_HUB
+DOCKER_BUILD_HOST=
+DOCKER_BUILD_PATH=$(dirname $WORKSPACE)/${APP_PRJ}_${APP_OBJ}_${APP_ENV}_${APP_ACT}_Docker
+DOCKER_BUILD_TO_RUN_LIST=$TMP_DIR/docker_build_list-$APP_PRJ-$APP_OBJ-$APP_ENV
+
 ### Command Tools
 # JAVA
 JARCTL=/usr/local/bin/jarctl
 
 # Resin 
-RESINCTL=/usr/local/resin/bin/resinctl
+RESIN_DIR=/usr/local/resin
+RESIN_WEB=$RESIN_DIR/webapps
+ RESINCTL=$RESIN_DIR/bin/resinctl
 
 ### Maven ###
 MAVEN=/data/apps/tools/apache-maven-3.3.9/bin/mvn
 
+
 # Default Settings
  SSH_USER=
  SSH_PORT=
- SSH_OPTS=""
+ SSH_OPTS=
 
-SCP_SPEED=30720
- WEB_ROOT=
 
-### NGINX & HTTP Settings
-HTTP_PORT=
-
-# Nginx Status URL, eg. /nginx_status
- NGX_STAT=
+SCP_SPEED=51200
+ WEB_ROOT=/data/www
+HTTP_PORT=80
+ NGX_STAT=/nginx_status
 
   NGX_DIR=/usr/local/nginx
  NGX_SBIN=$NGX_DIR/sbin/nginx
 
 # CURL
-      NGX_CC_RETRY=2
+NGX_CC_RETRY=2
 NGX_CC_RETRY_DELAY=1
-   NGX_CC_MAX_TIME=1
-         NGX_CC_CT=2
+NGX_CC_MAX_TIME=1
+NGX_CC_CT=2
 
 # nginx_stat_check
-    NSC_HTTP_PORT=80
-     NSC_HTTP_URL="/"
+NSC_HTTP_PORT=80
+ NSC_HTTP_URL="/"
+
+
+# Users Chack
+ PERMISSION_DIR_USERS=$CONFIG_DIR/permission/users
+PERMISSION_DIR_GROUPS=$CONFIG_DIR/permission/groups
+
+ALWAYS_ALLOWED_GROUPS="ops-core"
+
+### PROJECT
+P_VLS_NAME=""
 
 mf=$CONFIG_DIR/modules
 
@@ -83,3 +148,5 @@ else
     echo -e "Error: $mf does not exist"
     exit 1
 fi
+
+
