@@ -222,7 +222,7 @@ docker_container_ctl(){
 
     dc_nid=`SSH "sudo docker ps -a | grep $container_name" | awk '{print $1}'`
 
-    if [ "X$dc_nid" != "X" ]
+    if [ ! -z "$dc_nid" ]
     then
         dc_nip=`SSH "sudo docker inspect -f '{{.NetworkSettings.IPAddress}}' $dc_nid"`
         
