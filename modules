@@ -3,50 +3,32 @@
 msg(){
     echo -e "`date +'%F %T'` `echo $1 | tr a-z A-Z`: $2"
     case $1 in
-        error)
-            exit 1
-            ;;
-        info)
-            return 0
-            ;;
-        warning)
-            return 0
-            ;;
-        space)
-            return 0
-            ;;
+        error)      exit   1;;
+        info)       return 0;;
+        warning)    return 0;;
+        space)      return 0;;
     esac
 }
 
 SSH(){
     # SSH "CMD"
-    if [ -z "$1" ]
-    then
-        msg error "require argument"
-    fi
+    test -z "$1" && msg error "require argument"
+
     ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST "$1"
 }
 
 SCP(){
     # SCP local-file remote-path
-    if [ -z "$2" ]
-    then
-        msg error "require argument"
-    fi
-    
+    test -z "$2" && msg error "require argument"
     test -f "$1" || msg error "File $1 not found"
     
-    msg info "Uploading '$(basename $1)' to $2"
     scp -P $SSH_PORT -l $SCP_SPEED $1 $SSH_USER@$SSH_HOST:$2
 }
 
 GET(){
     # GET remote-path local-path
-    if [ -z "$2" ]
-    then
-        msg error "require argument"
-    fi
-    
+    test -z "$2" && msg error "require argument"
+
     local_dir="$(dirname $2)" 
 
     if [ "$local_dir" != "." ]   
@@ -54,7 +36,6 @@ GET(){
         test -d $local_dir || mkdir -p $local_dir
     fi
 
-    msg info "Uploading '$(basename $1)' to $2"
     scp -P $SSH_PORT -l $SCP_SPEED $SSH_USER@$SSH_HOST:$1 $2
 }
 
@@ -70,10 +51,7 @@ check(){
             return 0
             ;;
         file)
-            if [ ! -f "$2" ]
-            then
-                msg error "File does not exist: $2"
-            fi
+            test ! -f "$2" && msg error "File does not exist: $2"
             ;;
         user)  
             allowed_groups=$PERMISSION_DIR_GROUPS
@@ -113,22 +91,13 @@ check(){
         return)
             rt_code="$?"
 
-            if [ $rt_code != 0 ]
-            then
-                msg error "Detected failure in last step"
-                exit 1
-            fi
+            test $rt_code != 0 && msg error "Detected failure in last step"
             ;;
     esac
 }
 
 fsize(){
-    if [ -f "$1" ]
-    then
-        du -h "$1" | awk '{print $1}'
-    else
-        msg warning "File $1 not found"
-    fi
+    test -f "$1" && du -h "$1" | awk '{print $1}' || msg warning "File $1 not found"
 }
 
 nginx_status_check(){
@@ -138,12 +107,7 @@ nginx_status_check(){
     CURL_INFO="$NSC_HTTP_HOST:$NSC_HTTP_PORT:$NSC_HTTP_IP $NSC_HTTP_HOST:$NSC_HTTP_PORT$NSC_HTTP_URL"
     CURL_EXEC="curl --connect-timeout $NGX_CC_CT $CURL_OPTS --resolve $CURL_INFO"
 
-    if [ "$NSC_CURL_ECHO" = "slient" ]
-    then
-        $CURL_EXEC > /dev/null
-    else 
-        $CURL_EXEC
-    fi
+    test "$NSC_CURL_ECHO" = "slient" && $CURL_EXEC > /dev/null || $CURL_EXEC
 
     NGX_CC_STAT=$?
 }
@@ -225,17 +189,10 @@ mp_deploy(){
 }
 
 remove (){
-    if [ -f "$1" ]
-    then
-        rm -rf "$1"
-    else
-        msg warning "File not found: $1"
-    fi
+    test -f "$1" && rm -rf "$1" && msg warning "File not found: $1"
 }
 
 docker_container_ctl(){
-    # Let link_opt="" if without link options
-
     # Stop & remove old container    
     dc_oid=`SSH "sudo docker ps -a | grep $container_name" | awk '{print $1}' | head -1`  
         
@@ -257,10 +214,7 @@ docker_container_ctl(){
     SSH "sudo docker images" | grep $docker_tag | awk '{print $3}'
     msg info "Removing old image, id $img_id"
 
-    if [ "X$img_id" != "X" ]
-    then
-        SSH "sudo docker rmi $img_id"
-    fi
+    test ! -z "$img_id" && SSH "sudo docker rmi $img_id"
     
     msg info "Start container $container_name use image $docker_tag"
 
@@ -277,7 +231,7 @@ docker_container_ctl(){
         msg error "Failed to start container $container_name use image $docker_tag"
     fi 
     
-    if [ "X$dc_oip" != "X" ] && [ "X$dc_nip" != "X" ] && [ "$dc_oip" != "$dc_nip" ]
+    if [ ! -z "$dc_oip" ] && [ ! -z "$dc_nip" ] && [ "$dc_oip" != "$dc_nip" ]
     then
         msg warning "Container IP has been changed to $dc_nip from old IP $dc_oip"
         
@@ -304,7 +258,7 @@ unlock_keychain(){
     security set-keychain-settings -t 3600 -l $OSX_KEYCHAIN_FILE
 }
 
-xcode_build(){
+XCodeBuild(){
     test -d $(dirname $ios_export_path) || mkdir -p $(dirname $ios_export_path)
     xcodebuild  -workspace $ios_project_path\
                 -scheme $ios_scheme\
