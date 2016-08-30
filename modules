@@ -10,6 +10,14 @@ msg(){
     esac
 }
 
+TimePoint(){
+    case $1 in
+        start)  time_start=`date +%s`;;
+        stop)    time_stop=`date +%s`;;
+        used)    time_used=`echo $time_stop - $time_start | bc`;;
+    esac
+}
+
 SSH(){
     # SSH "CMD"
     test -z "$1" && msg error "require argument"
@@ -91,7 +99,7 @@ check(){
         return)
             rt_code="$?"
 
-            test $rt_code != 0 && msg error "Detected failure in last step"
+            test $rt_code != 0 && msg error "Detected failure in last step || return 0"
             ;;
     esac
 }
@@ -192,11 +200,57 @@ remove (){
     test -f "$1" && rm -rf "$1" && msg warning "File not found: $1"
 }
 
-docker_container_ctl(){
+Upload2DockerBuildServer(){
+    test "$API"         = "true" && TARGET="api"
+    test "$CALLBACK"    = "true" && TARGET="$TARGET callback"
+    test "$BACKOFFICE"  = "true" && TARGET="$TARGET backoffice"
+
+    for target in $TARGET
+    do
+          pj=$APP_PRJ-$target-app
+         app=$WORKSPACE/${pj}/target/${pj}.war
+        name=${app_env}_${target}.war
+        
+        msg info "Uploading $(basename $app)(size: `fsize $app`) save as $name"
+
+        TimePoint start
+        SCP $app $DOCKER_BUILD_PATH/$name
+        TimePoint stop
+        test $? = 0 && msg info "Succeeded, ${time_used} seconds" || msg warning "Failed"
+    done
+}
+
+DockerBuildImages(){
+    dockerfile="Dockerfile"
+
+    test -f $DOCKER_BUILD_TO_RUN_LIST && > $DOCKER_BUILD_TO_RUN_LIST
+
+    for f in ${app_env}_${APP_PRJ}-*.war
+    do
+        check file $f
+        
+              name="${app_env}-${APP_OBJ}.${f##*.}"
+        image_name="${name%.*}"
+        # DOCKER_TAG, default is 'latest'
+        docker_tag="$DOCKER_REPOSITORY/$image_name:$DOCKER_TAG"
+        
+        cp -rf files/$dockerfile . 
+        
+        echo "ADD  $name $RESIN_WEB" >> $dockerfile
+        
+        sudo docker build -t $docker_tag .
+        sudo docker push     $docker_tag
+        
+        echo "$docker_tag" >> $DOCKER_BUILD_TO_RUN_LIST
+        remove $f
+    done
+}
+
+DockerContainerControlllor(){
     # Stop & remove old container    
     dc_oid=`SSH "sudo docker ps -a | grep $container_name" | awk '{print $1}' | head -1`  
         
-    if [ "X$dc_oid" = "X" ]
+    if [ -z "$dc_oid" ]
     then
         msg warning "Container id not found"
     else
@@ -209,12 +263,9 @@ docker_container_ctl(){
 
     img_name="`echo $docker_tag | awk -F ':' '{print $1}'`"
      img_tag="`echo $docker_tag | awk -F ':' '{print $2}'`"
-      img_id=`SSH "sudo docker images | grep $img_name | grep $img_tag | awk '{print $3}'"`
-        
-    SSH "sudo docker images" | grep $docker_tag | awk '{print $3}'
-    msg info "Removing old image, id $img_id"
 
-    test ! -z "$img_id" && SSH "sudo docker rmi $img_id"
+    msg info "Pull new images"
+    SSH "sudo docker pull $docker_tag"
     
     msg info "Start container $container_name use image $docker_tag"
 
@@ -246,7 +297,7 @@ docker_container_ctl(){
 }
 
 
-unlock_keychain(){
+UnlockKeychain(){
     if [ -f $OSX_KEYCHAIN_AUTH_FILE ]
     then
         . $OSX_KEYCHAIN_AUTH_FILE
