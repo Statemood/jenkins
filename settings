@@ -1,6 +1,6 @@
 #! /bin/bash
 
-CONFIG_DIR=/data/apps/jenkins/config
+CONFIG_DIR=$(dirname $0)
 
 case `uname -s` in
     Darwin)
