@@ -14,7 +14,6 @@ case `uname -s` in
         NODE_OS="`uname -s`"
         TMP_DIR="/dev/shm/jenkins"
 
-
         BIN_SED=sed
         BIN_MD5=md5sum
         ;;
@@ -24,10 +23,7 @@ test -d $TMP_DIR || mkdir -p $TMP_DIR
 
 BUILD_LOG=$JENKINS_HOME/jobs/$JOB_NAME/builds/$BUILD_NUMBER/log
 
-if [ -f "$BUILD_LOG" ]
-then
-    BUILD_USER=`head -1 $BUILD_LOG | awk -F '0m' '{print $2}'`
-fi
+test -f "$BUILD_LOG" && BUILD_USER=`head -1 $BUILD_LOG | awk -F '0m' '{print $2}'`
 
 APP_PRJ="`echo $JOB_NAME | awk -F '_' '{print $1}'`"
 APP_OBJ="`echo $JOB_NAME | awk -F '_' '{print $2}'`"
@@ -37,25 +33,18 @@ APP_TGT="`echo $JOB_NAME | awk -F '_' '{print $5}'`"
   
 app_env="`echo $APP_ENV  | tr A-Z a-z`"
 
-
 # COMPANY info
 COMPANY_NAME_EN=""
 
-
 ### Jenkins
-    JKS_RUN_USER=jenkins
-
+    JKS_RUN_USER=
       JKS_DL_URL=
 JKS_DOWNLOAD_URL=$JKS_DL_URL
-
-      JKS_DL_DIR=/data/www/packages
-
-JKS_AGENT_DOCKER_01=
-JKS_AGENT_MACOSX_01=
+      JKS_DL_DIR=
 
 # OSX Auth
 OSX_KEYCHAIN_AUTH_FILE=$CONFIG_DIR/auth/osx-keychain.auth
-     OSX_KEYCHAIN_FILE=/Users/jenkins/Library/Keychains/login.keychain
+     OSX_KEYCHAIN_FILE=~jenkins/Library/Keychains/login.keychain
 
 ### Android
 ANDROID_SDK_LOCAL_FILE=$CONFIG_DIR/project/$APP_PRJ/Android/local.properties
@@ -92,30 +81,19 @@ DOCKER_BUILD_HOST=
 DOCKER_BUILD_PATH=$(dirname $WORKSPACE)/${APP_PRJ}_${APP_OBJ}_${APP_ENV}_${APP_ACT}_Docker
 DOCKER_BUILD_TO_RUN_LIST=$TMP_DIR/docker_build_list-$APP_PRJ-$APP_OBJ-$APP_ENV
 
-### Command Tools
-# JAVA
-JARCTL=/usr/local/bin/jarctl
-
-# Resin 
-RESIN_DIR=/usr/local/resin
-RESIN_WEB=$RESIN_DIR/webapps
- RESINCTL=$RESIN_DIR/bin/resinctl
-
-### Maven ###
-MAVEN=/data/apps/tools/apache-maven-3.3.9/bin/mvn
-
-
 # Default Settings
  SSH_USER=
  SSH_PORT=
  SSH_OPTS=
 
-
 SCP_SPEED=51200
- WEB_ROOT=/data/www
+ WEB_ROOT=
 HTTP_PORT=80
+
+# Nginx Status URL
  NGX_STAT=/nginx_status
 
+# Nginx 
   NGX_DIR=/usr/local/nginx
  NGX_SBIN=$NGX_DIR/sbin/nginx
 
@@ -129,15 +107,11 @@ NGX_CC_RETRY_DELAY=1
 NSC_HTTP_PORT=80
  NSC_HTTP_URL="/"
 
-
 # Users Chack
  PERMISSION_DIR_USERS=$CONFIG_DIR/permission/users
 PERMISSION_DIR_GROUPS=$CONFIG_DIR/permission/groups
 
 ALWAYS_ALLOWED_GROUPS="ops-core"
-
-### PROJECT
-P_VLS_NAME=""
 
 mf=$CONFIG_DIR/modules
 
@@ -148,5 +122,3 @@ else
     echo -e "Error: $mf does not exist"
     exit 1
 fi
-
-
