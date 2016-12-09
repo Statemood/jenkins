@@ -197,7 +197,7 @@ mp_deploy(){
 }
 
 remove (){
-    test -f "$1" && rm -rf "$1" && msg warning "File not found: $1"
+    test -f "$1" && rm -rf "$1" || msg warning "File not found: $1"
 }
 
 Upload2DockerBuildServer(){
