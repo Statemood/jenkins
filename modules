@@ -140,7 +140,7 @@ mp_rollback(){
           RBD2_ID=`echo $CHOICE_ONE | awk -F '/' '{print $6}'`
          RBD_NAME=`echo $CHOICE_ONE | awk -F '/' '{print $5}'`
 
-       CLASS_NAME="${MOSAI_CLASS}.${APP_PRJ}"
+       CLASS_NAME="${S_CLASS}.${APP_PRJ}"
       MODULES_DIR="$JENKINS_HOME/jobs/${RBD_NAME}/modules" 
        BUILDS_DIR="${MODULES_DIR}/${CLASS_NAME}\$${PROJECT}/builds/$RBD2_ID"
       ARCHIVE_DIR="${BUILDS_DIR}/archive/${CLASS_NAME}/${PROJECT}"
@@ -246,7 +246,7 @@ DockerBuildImages(){
     done
 }
 
-DockerContainerControlllor(){
+DockerContainerControllor(){
     # Stop & remove old container    
     dc_oid=`SSH "sudo docker ps -a | grep $container_name" | awk '{print $1}' | head -1`  
         
