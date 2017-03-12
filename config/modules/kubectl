@@ -22,6 +22,8 @@ KubectlPSCD(){
 
     svc_name="`grep 'name' $yaml_svc | awk -F ': ' '{print $2}'`-$app_env"
 
+    sed -i "s/$svc_name*/$svc_name-$app_env/g" *
+
     KubectlGetSVC | grep -q "$svc_name"
 
     if [ $? = 0 ]
