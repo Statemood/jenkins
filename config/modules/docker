@@ -1,0 +1,51 @@
+DockerImagesList(){
+    test "$1" != "all" && opts="| grep -v '<none>'" || opts=
+    sudo docker images $opts
+}
+
+DockerImagesClean(){
+    none_images_id="`sudo docker images | awk '$2 == "<none>"' | awk '{print $3}'`"
+
+    test ! -z "$none_images_id" && sudo docker rmi $none_images_id || msg i "All images looks good"
+}
+
+DockerImageSize(){
+    image_name="`echo $DOCKER_IMAGE_NAME  | awk -F ':' '{print $1}'`"
+     image_tag="`echo $DOCKER_IMAGE_NAME  | awk -F ':' '{print $2}'`"
+    DockerImagesList | grep "$image_name" | grep "image_tag" | awk '{print $7,$8}' 
+}
+
+DockerGenerateDockerfile(){
+    msg i "Generating Dockerfile for project $APP_NAME"
+
+    cp -rf $DOCKER_FILES_DIR/* .
+    
+    # DF_TARGETS="file1::/etc/dir/
+    #             file2::/var/run/"    
+
+    for target in $DF_TARGETS
+    do 
+        tf="`echo $target | awk -F '::' '{print $1}'`"
+        tp="`echo $target | awk -F '::' '{print $2}'`"
+        
+        test -e "$tf" || msg e "File not found: $tf"
+
+        echo "COPY $tf $tp"             >> Dockerfile 
+    done
+
+    echo "ENTRYPOINT [\"/run.sh\"]"     >> Dockerfile
+}
+
+DockerImageBuild(){
+    test -f "./Dockerfile"              || msg e "File not found: Dockerfile"   
+    test -z "$DOCKER_IMAGE_NAME"        && msg e "Require docker image name"
+
+    msg i "Build image $DOCKER_IMAGE_NAME with docker options $DOCKER_BUILD_OPTS"
+    sudo docker build $DOCKER_BUILD_OPTS -t $DOCKER_IMAGE_NAME .
+
+    msg i "Image $DOCKER_IMAGE_NAME size: `DockerImageSize`"
+}
+
+DockerImagePush(){
+    sudo docker push $DOCKER_IMAGE_NAME
+}

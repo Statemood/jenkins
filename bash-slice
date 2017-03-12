@@ -1,8 +1,0 @@
-#! /bin/bash
-
-header='test -f /data/apps/jenkins/config/settings && . /data/apps/jenkins/config/settings || exit 1'
-script="$2"
-echo -e "`date +'%F %T'` $(basename $script), `md5sum $script | awk '{print $1}' | tr -t a-z A-Z`"
-
-sed -i "1 i$header" $script
-/bin/bash $script

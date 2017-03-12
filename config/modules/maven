@@ -1,0 +1,76 @@
+MavenBuild(){
+    msg info "Using $MAVEN_VERSION"
+    $MAVEN_CMD $MAVEN_OPTS
+    
+    test $? != 0 && msg error "Failed to build, aborted"     
+
+    msg info "Check file $PKG_FILE"
+    check file $PKG_FILE
+
+    # 如 PKG_NAME 不为空则将 PKG_FILE 重命名
+
+    if [ ! -z "$PKG_NAME" ]
+    then
+        msg info "Copy $PKG_FILE to $PKG_NAME"
+        cp -rf $PKG_FILE $PKG_NAME
+    fi
+}
+
+# Rollback Maven project
+mp_rollback(){
+          PROJECT="$APP_PRJ-$project-app"
+          RBD2_ID=`echo $CHOICE_ONE | awk -F '/' '{print $6}'`
+         RBD_NAME=`echo $CHOICE_ONE | awk -F '/' '{print $5}'`
+
+       CLASS_NAME="${MOSAI_CLASS}.${APP_PRJ}"
+      MODULES_DIR="$JENKINS_HOME/jobs/${RBD_NAME}/modules" 
+       BUILDS_DIR="${MODULES_DIR}/${CLASS_NAME}\$${PROJECT}/builds/$RBD2_ID"
+      ARCHIVE_DIR="${BUILDS_DIR}/archive/${CLASS_NAME}/${PROJECT}"
+         SNAPSHOT=`grep "Building $PROJECT" $BUILDS_DIR/log | awk -F "$PROJECT " '{print $2}'`
+    ROLLBACK_FILE=$ARCHIVE_DIR/$SNAPSHOT/${PROJECT}-${SNAPSHOT}.war
+}
+
+# Deploy Maven project
+mp_deploy(){
+    # Uploading
+
+    msg info "Uploading $PKG_FILE to $SSH_HOST"
+    SCP $PKG_FILE $WEB_ROOT/$(basename $PKG_FILE)
+    
+    msg info "Restart $APP_NAME"
+    SSH "tomcat $APP_NAME restart"
+}
+
+mp_fj_environment(){
+    msg info "Environment is $Environment"
+
+    case "$Environment" in
+        PD) 
+            for s in $PD_HOSTS
+            do
+                SSH_HOST="$s"
+                check user
+                
+                $action
+            done
+            
+            return $?                   ;;
+            
+        QA)     SSH_HOST="$IP_19.151"   
+                SSH_USER="localadmin"   
+                      DQ=0              ;;
+        DEV)    SSH_HOST=""         
+                      DQ=0              ;;
+    esac
+}
+
+mp_fj_action(){
+    msg info "Action is $Action"
+
+    test $DQ = 0 && mp_build_image run || mp_build
+
+    if [ "$Environment" = "PD" ]
+    then
+        deploy_FJ
+    fi
+}

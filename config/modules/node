@@ -1,0 +1,19 @@
+NPMInit(){
+    msg info "Initialize node config, set prefix to $NODE_NPM_PATH"
+    npm config set prefix $NODE_NPM_PATH
+    npm install
+}
+
+NodeBuild(){
+    case $1 in 
+        webpack)
+            # build
+            webpack_js=./node_modules/webpack/bin/webpack.js
+
+            test -f $webpack_js || msg error "File not found: $webpack_js"
+            $webpack_js
+    
+            test $? != 0 && msg error "build failed"
+            ;;
+    esac
+}

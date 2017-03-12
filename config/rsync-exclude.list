@@ -1,0 +1,16 @@
+.hg
+.svn
+.git
+.DS_Store
+.gitignore
+.snap
+.sujournal
+*.log
+*.txt
+*.rar
+*.tar
+*.tgz
+*.gz
+data/log
+data/cache
+log

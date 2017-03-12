@@ -1,0 +1,20 @@
+msg_print(){
+    echo -e "`date +'%F %T'` $1"
+}
+
+msg(){
+    case $1 in
+        e|error)      msg_print "ERROR: $2" &&  exit   1 ;;
+        i|info)       msg_print "INFO: $2" &&  return 0 ;;
+        w|warning)    msg_print "WARNING: $2" &&  return 0 ;;
+        h|hello)      msg_print "Hello world" &&  return 0 ;;
+    esac
+}
+
+TimePoint(){
+    case $1 in
+        start)  time_start=`date +%s`;;
+        stop)    time_stop=`date +%s`;;
+        used)    time_used=`echo $time_stop - $time_start | bc`;;
+    esac
+}

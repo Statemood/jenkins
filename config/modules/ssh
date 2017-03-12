@@ -1,0 +1,47 @@
+SSH(){
+    # SSH "CMD"
+    test -z "$1" && msg error "require argument"
+
+    ssh $SSH_OPTS -p $SSH_PORT $SSH_USER@$SSH_HOST "$1"
+}
+
+SCP(){
+    # SCP local-file remote-path
+    test -z "$2" && msg error "require argument"
+    test -f "$1" || msg error "File $1 not found"
+    
+    scp -P $SSH_PORT -l $SCP_SPEED $1 $SSH_USER@$SSH_HOST:$2
+}
+
+RSync(){
+    test -z "$1" && msg e "RSync: Require argument"
+    rsync $RSC_OPTS $1 $SSH_USER@$SSH_HOST:$WEB_ROOT 
+}
+
+
+GET(){
+    # GET remote-path local-path
+    test -z "$2" && msg error "require argument"
+
+    local_dir="$(dirname $2)" 
+
+    if [ "$local_dir" != "." ]   
+    then
+        test -d $local_dir || mkdir -p $local_dir
+    fi
+
+    scp -P $SSH_PORT -l $SCP_SPEED $SSH_USER@$SSH_HOST:$1 $2
+}
+
+Server(){
+    case "$1" in
+        alias)
+            if [ -z "$SERVER_ALIAS" ]
+            then
+                SERVER_ALIAS="`echo $SSH_HOST | awk -F '.' '{print $3,$4}' | sed 's/ /./g'`"
+            else
+                echo "$SERVER_ALIAS"
+            fi
+            ;;
+    esac
+}

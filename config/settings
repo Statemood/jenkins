@@ -1,0 +1,152 @@
+#! /bin/bash
+
+umask 022
+
+CONFIG_DIR=/data/app/jenkins/config
+
+case `uname -s` in
+    Darwin)
+        NODE_OS="OSX"
+        TMP_DIR=/tmp/jenkins
+        
+        BIN_SED=/usr/local/bin/sed
+        BIN_MD5=md5
+        ;;
+    Linux)
+        NODE_OS="`uname -s`"
+        TMP_DIR="/dev/shm/jenkins"
+
+        BIN_SED=sed
+        BIN_MD5=md5sum
+        ;;
+esac
+
+test -d $TMP_DIR || mkdir -p $TMP_DIR
+
+BUILD_LOG=$JENKINS_HOME/jobs/$JOB_NAME/builds/$BUILD_NUMBER/log
+
+test -f "$BUILD_LOG" && BUILD_USER=`head -1 $BUILD_LOG | awk -F '0m' '{print $2}'`
+
+GENV_FILE_NAME=$TMP_DIR/${JOB_NAME}_${BUILD_NUMBER}
+
+APP_PRJ="`echo $JOB_NAME | awk -F '_' '{print $1}'`"
+APP_SUB="`echo $JOB_NAME | awk -F '_' '{print $2}'`"
+APP_ENV="`echo $JOB_NAME | awk -F '_' '{print $3}'`"
+APP_ACT="`echo $JOB_NAME | awk -F '_' '{print $4}'`"
+ 
+echo "$APP_ENV" | egrep -q "DEV|QA|PD"
+
+if [ $? != 0 ] || [ -z "$APP_ENV" ]
+then
+    echo $Environment | egrep -q "DEV|QA|PD"
+    test $? = 0 && APP_ENV=$Environment
+fi
+
+app_env="`echo $APP_ENV  | tr A-Z a-z`"
+app_prj="`echo $APP_PRJ  | tr A-Z a-z `"
+app_sub="`echo $APP_SUB  | tr A-Z a-z | sed 's/-/_/g'`"
+
+PROJECT_CONFIG_DIR=$CONFIG_DIR/project/$app_prj/$app_sub
+
+# COMPANY info
+         DOMAIN=""
+COMPANY_NAME_EN=""
+
+### Jenkins
+    JKS_RUN_USER="jenkins"
+      JKS_DL_URL=""
+JKS_DOWNLOAD_URL="$JKS_DL_URL"
+      JKS_DL_DIR=""
+ JKS_DOCKER_HOST=""
+
+# Maven
+MAVEN_VERSION="apache-maven-3.3.9"
+   MAVEN_HOME="/data/app/jenkins/tools/$MAVEN_VERSION"
+    MAVEN_CMD="$MAVEN_HOME/bin/mvn"
+
+   MAVEN_OPTS="-U clean -Dmaven.test.skip=true package dependency:tree"
+
+# OSX Auth
+OSX_KEYCHAIN_AUTH_FILE=$CONFIG_DIR/auth/osx-keychain.auth
+     OSX_KEYCHAIN_FILE=~jenkins/Library/Keychains/login.keychain
+
+### Android
+ANDROID_SDK_LOCAL_FILE=$CONFIG_DIR/project/$APP_PRJ/Android/local.properties
+
+ANDROID_APK_DIR=app/build/outputs/apk
+ANDROID_APK_SAVE_URL=Android/apk/`date +%Y/%m/%d`
+ANDROID_APK_SAVE_DIR=$JKS_DL_DIR/$ANDROID_APK_SAVE_URL
+
+ANDROID_PRE_IM_UPLOAD_KEY=
+ANDROID_PRE_IM_UPLOAD_URL=
+
+
+### iOS
+iOS_IPA_SAVE_URL=iOS/ipa/`date +%Y/%m/%d`
+iOS_IPA_SAVE_DIR=$JKS_DL_DIR/$iOS_IPA_SAVE_URL
+
+                 iOS_DEV_CSI=""
+iOS_DEV_PROVISIONING_PROFILE=""
+
+
+# Gradle
+GRADLE_PROPERTIES=$(dirname $ANDROID_SDK_LOCAL_FILE)/gradle.properties
+
+### Docker
+DOCKER_TAG=latest
+DOCKER_REGISTRY=
+DOCKER_BUILD_HOST=
+DOCKER_BUILD_PATH=$(dirname $WORKSPACE)/${APP_PRJ}_${APP_OBJ}_${APP_ENV}_${APP_ACT}_Docker
+DOCKER_BUILD_TO_RUN_LIST=$TMP_DIR/docker_build_list-$APP_PRJ-$APP_OBJ-$APP_ENV
+
+DOCKER_FILES_DIR=/data/dockerfiles/$app_prj/$app_sub
+
+DOCKER_IMAGE_NAME="$DOCKER_REGISTRY/project/$app_prj/$app_sub:$DOCKER_TAG"
+
+DOCKER_BUILD_OPTS=""
+
+# SSH/SCP Settings
+ SSH_USER=jenkins
+ SSH_PORT=22
+ SSH_OPTS=
+
+SCP_SPEED=51200
+
+RSYNC_EXCLUDE_LIST=$CONFIG_DIR/rsync-exclude.list
+
+
+# NGINX
+   NGX_CONF="/usr/local/nginx/conf"
+   NGX_SBIN="$(dirname $NGX_CONF)/sbin/nginx"
+   NGX_STAT="ps aux | grep -q '[n]ginx'"
+
+  NGX_START="$NGX_STAT || $NGX_SBIN"                        
+   NGX_STOP="$NGX_STAT && killall nginx"                    
+ NGX_RELOAD="$NGX_STAT && $NGX_SBIN -s reload || $NGX_SBIN" 
+
+
+# WEB RUN USER
+ WEB_USER=nobody
+WEB_GROUP=nobody
+
+# Sensitive Resources
+SENSITIVE_RESOURCES="^\.svn|^\.git|\.bak$|backup$|\.tar$|\.rar$|\.gz$|\.tgz$|\.zip$|\.exe$|\.sh$|\.log$"
+
+# Users Chack
+ PERMISSION_DIR_USERS=$CONFIG_DIR/permission/users
+PERMISSION_DIR_GROUPS=$CONFIG_DIR/permission/groups
+
+ALWAYS_ALLOWED_GROUPS="ops-core qa"
+        ALLOWED_USERS=""
+
+load(){
+    modules="${CONFIG_DIR}/modules/$1"
+    
+    if [ -f "$modules" ]
+    then
+        . "$modules"
+    else
+        echo "Error: File not found $modules"
+        exit 1
+    fi
+}

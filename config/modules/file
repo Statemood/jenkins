@@ -1,0 +1,31 @@
+fsize(){
+    test -f "$1" && du -h "$1" | awk '{print $1}' || msg warning "File $1 not found"
+}
+
+remove (){
+    if [ -f "$1" ] || [ -d "$1" ]
+    then
+        rm -rf "$1"
+    else
+        msg warning "No such file or directory: $1"
+    fi
+}
+
+clean(){
+    case $1 in
+        dir)
+            # clean dir app/cache
+
+            test -d $2 || msg warning "Dir not found: $2"
+            rm -rf $WORKSPACE/$2
+        ;;    
+    esac
+}
+
+ChangeOwner(){
+    test -z "$OWN_USER" && msg e "Undefined onwer"
+
+    msg i "Change ownership of the folder $WEB_ROOT to $OWN_USER"
+
+    SSH "chown -R $OWN_USER $WEB_ROOT"
+}

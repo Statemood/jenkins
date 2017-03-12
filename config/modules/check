@@ -1,0 +1,67 @@
+check(){
+    case $1 in
+        args)
+            if [ "$3" -lt "$2" ]
+            then
+                echo "Error: Missing arguments, required $2, detected $3"
+                return 1
+            fi
+    
+            return 0
+            ;;
+        file)
+            test ! -f "$2" && msg error "File does not exist: $2" || return 0
+            ;;
+        SensitiveResources)
+            for rs in `find . | egrep -i "$SENSITIVE_RESOURCES"`
+            do
+                remove "$rs"
+            done
+            ;;
+        user|Permission)  
+            case $APP_ENV in
+                DEV)    ALLOWED_USERS="`echo ${APP_ENV}-${APP_OBJ} | tr A-Z a-z`" ;;
+                QA)     ALLOWED_USERS="qa"  ;;
+            esac
+
+            allowed_groups=$PERMISSION_DIR_GROUPS
+
+            for aug in $ALWAYS_ALLOWED_GROUPS
+            do
+                if grep -q "^${BUILD_USER_ID}$" $allowed_groups/$aug
+                then
+                    msg info "Dear $BUILD_USER, Permission always granted for You"
+                    return 0
+                else
+                    msg info "Skip"
+                fi
+            done
+
+            for allow in $ALLOWED_USERS
+            do
+                allowed_file=$allowed_groups/$allow
+                if [ -f $allowed_file ]
+                then
+                    if grep -q "^${BUILD_USER_ID}$" $allowed_file
+                    then
+                        msg info "Permission granted for group"
+                        return 0
+                    fi
+                fi
+
+                if [ "$BUILD_USER_ID" = "$allow" ]
+                then    
+                    msg info "Permission granted for user"
+                    return 0
+                fi
+            done
+
+            msg error "Dear $BUILD_USER, you don't have permission to build $JOB_NAME. Aborted."
+            ;;
+        return)
+            rt_code="$?"
+
+            test $rt_code != 0 && msg error "Detected failure in last step || return 0"
+            ;;
+    esac
+}

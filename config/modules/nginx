@@ -1,0 +1,28 @@
+nginx_status_check(){
+    # ncc www.abc.com 172.16.0.1 80 /url -s("curl opts")
+
+    CURL_OPTS="-s --retry $NGX_CC_RETRY --retry-delay $NGX_CC_RETRY_DELAY -m $NGX_CC_MAX_TIME"
+    CURL_INFO="$NSC_HTTP_HOST:$NSC_HTTP_PORT:$NSC_HTTP_IP $NSC_HTTP_HOST:$NSC_HTTP_PORT$NSC_HTTP_URL"
+    CURL_EXEC="curl --connect-timeout $NGX_CC_CT $CURL_OPTS --resolve $CURL_INFO"
+
+    test "$NSC_CURL_ECHO" = "slient" && $CURL_EXEC > /dev/null || $CURL_EXEC
+
+    NGX_CC_STAT=$?
+}
+
+NginxController(){
+    case $1 in
+        start)      action="$NGX_START"    ;;
+        stop)       action="$NGX_STOP"     ;;
+        reload)     action="$NGX_RELOAD"   ;;
+        offline)    action="sed -i \"/$WEB_HOST/s/server/#server/\" $ngx_conf"    ;;
+        online)     action="sed -i \"/$WEB_HOST/s/#server/server/\" $ngx_conf"    ;;
+    esac
+
+    for ngx_server in $NGX_HOST
+    do
+        SSH_HOST="$ngx_server"
+
+        SSH "$action"
+    done
+}
