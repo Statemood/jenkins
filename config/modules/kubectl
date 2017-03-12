@@ -14,8 +14,8 @@ KubectlPSCD(){
 
     cd $KUBE_YAML_DIR
 
-     yaml_rc="$app_prj-$app_sub-rc.yaml"
-    yaml_svc="$app_prj-$app_sub-service.yaml"
+     yaml_rc="$app_sub-rc.yaml"
+    yaml_svc="$app_sub-service.yaml"
     
     check file $yaml_rc
     check file $yaml_svc

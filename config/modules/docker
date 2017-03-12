@@ -16,7 +16,31 @@ DockerImageSize(){
     DockerImagesList | grep "$image_name" | grep "$image_tag" | awk '{print $7,$8}' 
 }
 
-DockerGenerateDockerfile(){
+DockerImageBuild(){
+    test -f "./Dockerfile"              || msg e "File not found: Dockerfile"   
+    test -z "$DOCKER_IMAGE_NAME"        && msg e "Require docker image name"
+
+    msg i "Build image $DOCKER_IMAGE_NAME with docker options $DOCKER_BUILD_OPTS"
+    sudo docker build $DOCKER_BUILD_OPTS -t $DOCKER_IMAGE_NAME .
+
+    msg i "Image $DOCKER_IMAGE_NAME size: `DockerImageSize`"
+}
+
+DockerImagePush(){
+    sudo docker push $DOCKER_IMAGE_NAME
+}
+
+DockerImage(){
+    case "$1" in
+        build|Build)    DockerImageBuild        ;;
+        clean|Clean)    DockerImagesClean       ;;
+         list|List)     DockerImagesList        ;;
+         push|Push)     DockerImagePush         ;;
+         size|Size)     DockerImageSize         ;;
+    esac
+}
+
+DockerfileGenerate(){
     msg i "Generating Dockerfile for project $APP_NAME"
 
     cp -rf $DOCKER_FILES_DIR/* .
@@ -39,18 +63,4 @@ DockerGenerateDockerfile(){
     test -z "$DF_CMD_AFTER" || echo -e "$DF_CMD_AFTER" >> Dockerfile
 
     echo "ENTRYPOINT [\"/run.sh\"]"     >> Dockerfile
-}
-
-DockerImageBuild(){
-    test -f "./Dockerfile"              || msg e "File not found: Dockerfile"   
-    test -z "$DOCKER_IMAGE_NAME"        && msg e "Require docker image name"
-
-    msg i "Build image $DOCKER_IMAGE_NAME with docker options $DOCKER_BUILD_OPTS"
-    sudo docker build $DOCKER_BUILD_OPTS -t $DOCKER_IMAGE_NAME .
-
-    msg i "Image $DOCKER_IMAGE_NAME size: `DockerImageSize`"
-}
-
-DockerImagePush(){
-    sudo docker push $DOCKER_IMAGE_NAME
 }
