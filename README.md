@@ -13,4 +13,4 @@ Jenkins Shell 工具集
 4. 在 Jenkins 任务配置中 'Execute shell' Command 窗口中可以直接引用settings文件全部变量及函数 load
 5. 使用 load base 方法载入modules/base 文件, 在后续命令中直接使用函数即可
     `load base
-    `load file
+     load file`
