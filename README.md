@@ -1,12 +1,12 @@
 # Jenkins shell
 
 Jenkins Shell 工具集
-***
-###运行环境:
+
+### 运行环境:
     Linux/OS X
 
 
-###使用方法
+### 使用方法
 1. git clone https://github.com/Statemood/jenkins.git
 2. mv config /data/app/jenkins (如使用其他路径需要修改文件 bash-slice, settings)
 3. Jenkins管理设置中配置 bash-slice 为默认Shell
