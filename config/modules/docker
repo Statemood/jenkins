@@ -1,5 +1,6 @@
+#! /bin/bash
 DockerImagesList(){
-    test "$1" != "all" && opts="| grep -v '<none>'" || opts=
+    test "$1" = "all" && opts="| grep -v '<none>'" || opts=
     sudo docker images $opts
 }
 
@@ -12,7 +13,7 @@ DockerImagesClean(){
 DockerImageSize(){
     image_name="`echo $DOCKER_IMAGE_NAME  | awk -F ':' '{print $1}'`"
      image_tag="`echo $DOCKER_IMAGE_NAME  | awk -F ':' '{print $2}'`"
-    DockerImagesList | grep "$image_name" | grep "image_tag" | awk '{print $7,$8}' 
+    DockerImagesList | grep "$image_name" | grep "$image_tag" | awk '{print $7,$8}' 
 }
 
 DockerGenerateDockerfile(){
@@ -23,6 +24,8 @@ DockerGenerateDockerfile(){
     # DF_TARGETS="file1::/etc/dir/
     #             file2::/var/run/"    
 
+    test -z "$DF_CMD_BEFORE" || echo -e "$DF_CMD_BEFORE" >> Dockerfile
+
     for target in $DF_TARGETS
     do 
         tf="`echo $target | awk -F '::' '{print $1}'`"
@@ -32,6 +35,8 @@ DockerGenerateDockerfile(){
 
         echo "COPY $tf $tp"             >> Dockerfile 
     done
+
+    test -z "$DF_CMD_AFTER" || echo -e "$DF_CMD_AFTER" >> Dockerfile
 
     echo "ENTRYPOINT [\"/run.sh\"]"     >> Dockerfile
 }

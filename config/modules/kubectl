@@ -1,0 +1,45 @@
+#! /bin/bash
+
+KubectlGetSVC(){
+    sudo kubectl get svc
+}
+
+KubectlGetPods(){
+    sudo kubectl get pods -o wide
+}
+
+KubectlPSCD(){
+    test -z "$KUBE_YAML_DIR" && KUBE_YAML_DIR=kube_config
+    test -d "$KUBE_YAML_DIR" || msg e "Require yaml files location"
+
+    cd $KUBE_YAML_DIR
+
+     yaml_rc="$app_prj-$app_sub-rc.yaml"
+    yaml_svc="$app_prj-$app_sub-service.yaml"
+    
+    check file $yaml_rc
+    check file $yaml_svc
+
+    svc_name="`grep 'name' $yaml_svc | awk -F ': ' '{print $2}'`-$app_env"
+
+    KubectlGetSVC | grep -q "$svc_name"
+
+    if [ $? = 0 ]
+    then
+        msg i "Service $svc_name already exist"
+    else
+        msg i "Create $svc_name"
+        sudo kubectl create -f $yaml_svc
+    fi
+
+    KubectlGetPods | grep -q "$svc_name"
+
+    if [ $? = 0 ]
+    then
+        msg i "Remove pod $svc_name"
+        sudo kubectl delete -f $yaml_rc
+    fi
+    
+    msg i "Create pod $svc_name"
+    sudo kubectl create -f $yaml
+}
