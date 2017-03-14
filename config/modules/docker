@@ -40,27 +40,31 @@ DockerImage(){
     esac
 }
 
+DockerfileGenerateMaker(){
+    # ver="file1::/container-dir1
+    #      file2::/container-dir2"
+    
+    test -z "$1" && msg e "Require argument"    
+
+    for target in $1
+    do
+        tf="`echo $target | awk -F '::' '{print $1}'`"
+        tp="`echo $target | awk -F '::' '{print $2}'`"
+        
+        test -e "$tf" || msg e "File not found: $tf"
+        
+        echo "COPY $tf $tp"             >> Dockerfile
+    done
+}
+
 DockerfileGenerate(){
     msg i "Generating Dockerfile for project $APP_NAME"
 
     cp -rf $DOCKER_FILES_DIR/* .
     
-    # DF_TARGETS="file1::/etc/dir/
-    #             file2::/var/run/"    
-
-    test -z "$DF_CMD_BEFORE" || echo -e "$DF_CMD_BEFORE" >> Dockerfile
-
-    for target in $DF_TARGETS
-    do 
-        tf="`echo $target | awk -F '::' '{print $1}'`"
-        tp="`echo $target | awk -F '::' '{print $2}'`"
-        
-        test -e "$tf" || msg e "File not found: $tf"
-
-        echo "COPY $tf $tp"             >> Dockerfile 
-    done
-
-    test -z "$DF_CMD_AFTER" || echo -e "$DF_CMD_AFTER" >> Dockerfile
-
+    test -z "$DF_CMD_BEFORE"    || DockerfileGenerateMaker "$DF_CMD_BEFORE"
+    test -z "$DF_CMD_DEFAULT"   || DockerfileGenerateMaker "$DF_CMD_DEFAULT"
+    test -z "$DF_CMD_AFTER"     || DockerfileGenerateMaker "$DF_CMD_AFTER"
+    
     echo "ENTRYPOINT [\"/run.sh\"]"     >> Dockerfile
 }

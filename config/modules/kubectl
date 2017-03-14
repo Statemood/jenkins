@@ -20,10 +20,10 @@ KubectlPSCD(){
     check file $yaml_rc
     check file $yaml_svc
 
-    prj_name="`grep 'name' $yaml_svc | awk -F ': ' '{print $2}'`"
+    prj_name="$app_prj-$app_sub"
     svc_name="$prj_name-$app_env"
     
-    sed -i "s/$prj_name.*/$svc_name/g" *
+    sed -i "s/$prj_name/$svc_name/g" *.yaml
 
     KubectlGetSVC | grep -q "$svc_name"
 
@@ -31,10 +31,11 @@ KubectlPSCD(){
     then
         msg i "Service $svc_name already exist"
     else
-        msg i "Create service $svc_name"
+        msg i "Create $svc_name"
         sudo kubectl create -f $yaml_svc
     fi
 
+    msg i "Check pod $svc_name"
     KubectlGetPods | grep -q "$svc_name"
 
     if [ $? = 0 ]
