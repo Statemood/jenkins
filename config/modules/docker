@@ -1,4 +1,19 @@
 #! /bin/bash
+
+# Settings
+DOCKER_TAG=latest
+DOCKER_REGISTRY=registry.${DOMAIN}
+DOCKER_BUILD_HOST=
+DOCKER_BUILD_PATH=$(dirname $WORKSPACE)/${APP_PRJ}_${APP_OBJ}_${APP_ENV}_${APP_ACT}_Docker
+DOCKER_BUILD_TO_RUN_LIST=$TMP_DIR/docker_build_list-$APP_PRJ-$APP_OBJ-$APP_ENV
+
+DOCKER_FILES_DIR=/data/dockerfiles/$app_prj/$APP_SUB
+
+DOCKER_IMAGE_NAME="$DOCKER_REGISTRY/project/$app_prj/$APP_SUB:$DOCKER_TAG"
+
+DOCKER_BUILD_OPTS=""
+
+
 DockerImagesList(){
     test "$1" = "all" && opts="| grep -v '<none>'" || opts=
     sudo docker images $opts
@@ -43,7 +58,7 @@ DockerImage(){
 DockerfileGenerateMaker(){
     # ver="file1::/container-dir1
     #      file2::/container-dir2"
-    
+
     test -z "$1" && msg e "Require argument"    
 
     for target in $1
@@ -53,18 +68,51 @@ DockerfileGenerateMaker(){
         
         test -e "$tf" || msg e "File not found: $tf"
         
+        if [ ! -e "$(basename $tf)" ]
+        then
+            msg i "Copy $tf to ."
+            cp -rf $tf .       
+        fi
+        
+        msg i "TF: $tf"
+        msg i "TP: $tp"
+    
+        tf=$(basename $tf)        
+
+        msg i "Now TF is $tf"
+    
         echo "COPY $tf $tp"             >> Dockerfile
     done
 }
 
 DockerfileGenerate(){
     msg i "Generating Dockerfile for project $APP_NAME"
-
-    cp -rf $DOCKER_FILES_DIR/* .
     
+    test -d Dockerfiles && remove Dockerfiles
+    
+    msg i "Create dir Docekrfiles"
+    mkdir Dockerfiles
+
+    msg i "Copy $DOCKER_FILES_DIR" 
+    cp -rf $DOCKER_FILES_DIR/* Dockerfiles
+    
+    if [ -d "Dockerfiles" ]
+    then
+        cd Dockerfiles
+        msg i "Attention: Work dir is CHANGED to $PWD"
+    else
+        msg e "Directory Dockerfiles not found"
+    fi
+
     test -z "$DF_CMD_BEFORE"    || DockerfileGenerateMaker "$DF_CMD_BEFORE"
     test -z "$DF_CMD_DEFAULT"   || DockerfileGenerateMaker "$DF_CMD_DEFAULT"
     test -z "$DF_CMD_AFTER"     || DockerfileGenerateMaker "$DF_CMD_AFTER"
     
     echo "ENTRYPOINT [\"/run.sh\"]"     >> Dockerfile
+}
+
+Dockerfile(){
+    case $1 in 
+        Generate)       DockerfileGenerate  ;;
+    esac
 }

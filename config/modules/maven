@@ -1,76 +1,79 @@
+#! /bin/bash
+
+# Settings
+
+MAVEN_VERSION="apache-maven-3.3.9"
+   MAVEN_HOME="/data/app/jenkins/tools/$MAVEN_VERSION"
+    MAVEN_CMD="$MAVEN_HOME/bin/mvn"
+   MAVEN_OPTS="-U clean -Dmaven.test.skip=true package dependency:tree"
+
+MAVEN_POM_EXTRA_ASPECTJ=$CONFIG_DIR/project/pay/pom-extra-aspectj.xml
+
+MAVEN_ARCHIVE_DIR=Archive/$APP_PRJ/$APP_SUB/`date +%Y/%m/%d`
+MAVEN_ARCHIVE_EXPIRES=15
+
+MavenActionAdapter(){
+    test "$1" = "PPP" && MavenPomPreProcess 
+    MavenBuild
+}
+
+MavenArchiveController(){
+     maven_archive_target=$PKG_FILE
+    archive_saved_to_name=$JKS_DL_DIR/$MAVEN_ARCHIVE_DIR/$BUILD_NUMBER-$(basename $maven_archive_target)         
+          old_archive_dir=$JKS_DL_DIR/$MAVEN_ARCHIVE_DIR/`date -d "$MAVEN_ARCHIVE_EXPIRES days ago" ++%Y/%m/%d`
+                     astd=$(dirname $archive_saved_to_name)
+    if [ ! -d $astd ]
+    then 
+        msg i "Create dir $astd"
+        mkdir -p $astd
+    fi
+
+    test -f "$maven_archive_target" && cp -rf $maven_archive_target $archive_saved_to_name
+            
+    msg i "Maven Project Archived to $archive_saved_to_name"
+    msg i "Maven Project Archived URL: $JKS_DL_URL_19/$MAVEN_ARCHIVE_DIR/$(basename $archive_saved_to_name)"
+
+    if [ -d "$old_archive_dir" ]
+    then
+        msg i "Remove $old_archive_dir"
+        remove $old_archive_dir
+    else
+        msg i "Maven archive not found. Skipped"
+    fi
+}
+
+
 MavenBuild(){
-    msg info "Using $MAVEN_VERSION"
+    msg i "Using $MAVEN_VERSION"
+    msg i "With maven options: $MAVEN_OPTS"
     $MAVEN_CMD $MAVEN_OPTS
     
     test $? != 0 && msg error "Failed to build, aborted"     
 
     msg info "Check file $PKG_FILE"
     check file $PKG_FILE
-
-    # 如 PKG_NAME 不为空则将 PKG_FILE 重命名
-
-    if [ ! -z "$PKG_NAME" ]
-    then
-        msg info "Copy $PKG_FILE to $PKG_NAME"
-        cp -rf $PKG_FILE $PKG_NAME
-    fi
 }
 
-# Rollback Maven project
-mp_rollback(){
-          PROJECT="$APP_PRJ-$project-app"
-          RBD2_ID=`echo $CHOICE_ONE | awk -F '/' '{print $6}'`
-         RBD_NAME=`echo $CHOICE_ONE | awk -F '/' '{print $5}'`
-
-       CLASS_NAME="${MOSAI_CLASS}.${APP_PRJ}"
-      MODULES_DIR="$JENKINS_HOME/jobs/${RBD_NAME}/modules" 
-       BUILDS_DIR="${MODULES_DIR}/${CLASS_NAME}\$${PROJECT}/builds/$RBD2_ID"
-      ARCHIVE_DIR="${BUILDS_DIR}/archive/${CLASS_NAME}/${PROJECT}"
-         SNAPSHOT=`grep "Building $PROJECT" $BUILDS_DIR/log | awk -F "$PROJECT " '{print $2}'`
-    ROLLBACK_FILE=$ARCHIVE_DIR/$SNAPSHOT/${PROJECT}-${SNAPSHOT}.war
-}
-
-# Deploy Maven project
-mp_deploy(){
-    # Uploading
-
-    msg info "Uploading $PKG_FILE to $SSH_HOST"
-    SCP $PKG_FILE $WEB_ROOT/$(basename $PKG_FILE)
+MavenPomPreProcess(){
     
-    msg info "Restart $APP_NAME"
-    SSH "tomcat $APP_NAME restart"
-}
+    msg i "Preprocessing file pom.xml"
+    sed -i '/jdk.version/s/1.6/1.8/' pom.xml 
 
-mp_fj_environment(){
-    msg info "Environment is $Environment"
+    total_line=`wc -l pom.xml | awk '{print $1}'`
+     head_line=`grep -n '<dependencies>' pom.xml | awk -F ':' '{print $1}'`
+     tail_line=`echo $total_line - $head_line | bc`
 
-    case "$Environment" in
-        PD) 
-            for s in $PD_HOSTS
-            do
-                SSH_HOST="$s"
-                check user
-                
-                $action
-            done
-            
-            return $?                   ;;
-            
-        QA)     SSH_HOST="$IP_19.151"   
-                SSH_USER="localadmin"   
-                      DQ=0              ;;
-        DEV)    SSH_HOST=""         
-                      DQ=0              ;;
-    esac
-}
+    p_head=`mktemp $TEMP_DIR/XXXXXXXXXXXX`
+    p_tail=`mktemp $TEMP_DIR/XXXXXXXXXXXX`
 
-mp_fj_action(){
-    msg info "Action is $Action"
+    head -$head_line pom.xml > $p_head
+    tail -$tail_line pom.xml > $p_tail
 
-    test $DQ = 0 && mp_build_image run || mp_build
+    cat $MAVEN_POM_EXTRA_ASPECTJ    >> $p_head
+    cat $p_tail                     >> $p_head
 
-    if [ "$Environment" = "PD" ]
-    then
-        deploy_FJ
-    fi
+    cp -rf $p_head pom.xml
+
+    remove $p_head
+    remove $p_tail
 }

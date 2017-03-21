@@ -4,17 +4,10 @@ msg_print(){
 
 msg(){
     case $1 in
-        e|error)      msg_print "ERROR: $2" &&  exit   1 ;;
-        i|info)       msg_print "INFO: $2" &&  return 0 ;;
-        w|warning)    msg_print "WARNING: $2" &&  return 0 ;;
-        h|hello)      msg_print "Hello world" &&  return 0 ;;
-    esac
-}
-
-TimePoint(){
-    case $1 in
-        start)  time_start=`date +%s`;;
-        stop)    time_stop=`date +%s`;;
-        used)    time_used=`echo $time_stop - $time_start | bc`;;
+        d|done)       msg_print "INFO: $2"      &&  exit   0 ;;
+        e|error)      msg_print "ERROR: $2"     &&  exit   1 ;;
+        i|info)       msg_print "INFO: $2"      &&  return 0 ;;
+        w|warning)    msg_print "WARNING: $2"   &&  return 0 ;;
+        h|hello)      msg_print "Hello world"   &&  return 0 ;;
     esac
 }

@@ -1,5 +1,18 @@
 #! /bin/bash
 
+
+# OSX Auth
+OSX_KEYCHAIN_AUTH_FILE=$CONFIG_DIR/auth/osx-keychain.auth
+     OSX_KEYCHAIN_FILE=~jenkins/Library/Keychains/login.keychain
+
+### iOS
+iOS_IPA_SAVE_URL=iOS/ipa/`date +%Y/%m/%d`
+iOS_IPA_SAVE_DIR=$JKS_DL_DIR/$iOS_IPA_SAVE_URL
+
+                 iOS_DEV_CSI=""
+iOS_DEV_PROVISIONING_PROFILE=""
+
+
 UnlockKeychain(){
     if [ -f $OSX_KEYCHAIN_AUTH_FILE ]
     then

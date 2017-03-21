@@ -1,10 +1,16 @@
-NPMInit(){
+#! /bin/bash
+
+   NODE_NPM_PATH=.
+ NODE_SERVER_DIR=/pub/webnode
+NODE_SERVER_USER=root
+
+node_init(){
     msg info "Initialize node config, set prefix to $NODE_NPM_PATH"
     npm config set prefix $NODE_NPM_PATH
     npm install
 }
 
-NodeBuild(){
+node_build(){
     case $1 in 
         webpack)
             # build

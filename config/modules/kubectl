@@ -1,11 +1,11 @@
 #! /bin/bash
 
-KubectlGetSVC(){
-    sudo kubectl get svc
-}
-
-KubectlGetPods(){
-    sudo kubectl get pods -o wide
+KubectlGet(){
+    case $1 in
+        svc|SVC|Svc)        sudo kubectl get svc --namespace=$app_prj-$app_env          ;;
+        Pod|pod|pods|Pods)  sudo kubectl get pods -o wide --namespace=$app_prj-$app_env ;;
+        ClusterIP)          KubectlGet SVC | awk '{print $3}'                           ;;
+    esac
 }
 
 KubectlPSCD(){
@@ -14,18 +14,19 @@ KubectlPSCD(){
 
     cd $KUBE_YAML_DIR
 
-     yaml_rc="$app_sub-rc.yaml"
-    yaml_svc="$app_sub-service.yaml"
+     yaml_rc="ReplicationController.yaml"
+    yaml_svc="Service.yaml"
     
     check file $yaml_rc
     check file $yaml_svc
 
-    prj_name="$app_prj-$app_sub"
+    prj_name="$app_prj-$APP_SUB"
     svc_name="$prj_name-$app_env"
     
-    sed -i "s/$prj_name/$svc_name/g" *.yaml
+    sed -i "s/$prj_name.*/$svc_name/g" *.yaml
 
-    KubectlGetSVC | grep -q "$svc_name"
+    msg i "Check service $svc_name"
+    KubectlGet SVC | grep -q "$svc_name"
 
     if [ $? = 0 ]
     then
@@ -36,7 +37,7 @@ KubectlPSCD(){
     fi
 
     msg i "Check pod $svc_name"
-    KubectlGetPods | grep -q "$svc_name"
+    KubectlGet Pods | grep -q "$svc_name"
 
     if [ $? = 0 ]
     then
