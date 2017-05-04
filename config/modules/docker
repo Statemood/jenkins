@@ -3,16 +3,24 @@
 # Settings
 DOCKER_TAG=latest
 DOCKER_REGISTRY=registry.${DOMAIN}
+DOCKER_LOGIN_USER=registry
+DOCKER_LOGIN_PASSWORD=
 DOCKER_BUILD_HOST=
 DOCKER_BUILD_PATH=$(dirname $WORKSPACE)/${APP_PRJ}_${APP_OBJ}_${APP_ENV}_${APP_ACT}_Docker
 DOCKER_BUILD_TO_RUN_LIST=$TMP_DIR/docker_build_list-$APP_PRJ-$APP_OBJ-$APP_ENV
 
 DOCKER_FILES_DIR=/data/dockerfiles/$app_prj/$APP_SUB
 
-DOCKER_IMAGE_NAME="$DOCKER_REGISTRY/project/$app_prj/$APP_SUB:$DOCKER_TAG"
+DOCKER_IMAGE_NAME="$DOCKER_REGISTRY/project/$app_prj/$APP_SUB"
 
-DOCKER_BUILD_OPTS=""
+DOCKER_BUILD_OPTS="--no-cache"
 
+DockerLogin(){
+    DOCKER_LOGIN_PASSWORD="`Password docker`"
+
+    msg i "Login to $DOCKER_REGISTRY"
+    sudo docker login -u $DOCKER_LOGIN_USER -p $DOCKER_LOGIN_PASSWORD $DOCKER_REGISTRY
+}
 
 DockerImagesList(){
     test "$1" = "all" && opts="| grep -v '<none>'" || opts=
@@ -28,20 +36,23 @@ DockerImagesClean(){
 DockerImageSize(){
     image_name="`echo $DOCKER_IMAGE_NAME  | awk -F ':' '{print $1}'`"
      image_tag="`echo $DOCKER_IMAGE_NAME  | awk -F ':' '{print $2}'`"
-    DockerImagesList | grep "$image_name" | grep "$image_tag" | awk '{print $7,$8}' 
+    DockerImagesList | grep "$image_name" | grep "$image_tag" | awk '{print $7,$8}' | head -1
 }
 
 DockerImageBuild(){
-    test -f "./Dockerfile"              || msg e "File not found: Dockerfile"   
-    test -z "$DOCKER_IMAGE_NAME"        && msg e "Require docker image name"
+    test -z "$DOCKER_TAG"           && DOCKER_TAG="latest"    
+    test -f "./Dockerfile"          || msg e "File not found: Dockerfile"   
+    test -z "$DOCKER_IMAGE_NAME"    && msg e "Require docker image name"
 
-    msg i "Build image $DOCKER_IMAGE_NAME with docker options $DOCKER_BUILD_OPTS"
-    sudo docker build $DOCKER_BUILD_OPTS -t $DOCKER_IMAGE_NAME .
+    msg i "Build image $DOCKER_IMAGE_NAME:$DOCKER_TAG with docker options $DOCKER_BUILD_OPTS"
+    sudo docker build $DOCKER_BUILD_OPTS -t $DOCKER_IMAGE_NAME:$DOCKER_TAG .
 
     msg i "Image $DOCKER_IMAGE_NAME size: `DockerImageSize`"
 }
 
 DockerImagePush(){
+    DockerLogin
+    msg i "Push $DOCKER_IMAGE_NAME:$DOCKER_TAG"
     sudo docker push $DOCKER_IMAGE_NAME
 }
 
@@ -56,40 +67,33 @@ DockerImage(){
 }
 
 DockerfileGenerateMaker(){
-    # ver="file1::/container-dir1
-    #      file2::/container-dir2"
-
-    test -z "$1" && msg e "Require argument"    
-
-    for target in $1
-    do
-        tf="`echo $target | awk -F '::' '{print $1}'`"
-        tp="`echo $target | awk -F '::' '{print $2}'`"
-        
-        test -e "$tf" || msg e "File not found: $tf"
-        
-        if [ ! -e "$(basename $tf)" ]
+    dc_command="$1"
+       tgt_cmd="`echo $dc_command | awk '{print $1}'`"
+      tgt_file="`echo $dc_command | awk '{print $2}'`"
+      tgt_dest="`echo $dc_command | awk '{print $3}'`"
+    
+    echo "$dc_command" | grep -q "^COPY "
+    if [ $? = 0 ]
+    then
+        tgt_file="`echo $dc_command | awk '{print $2}'`"
+        echo $tgt_file | grep -q "^/"
+        if [ $? = 0 ]
         then
-            msg i "Copy $tf to ."
-            cp -rf $tf .       
+            msg i "Copy $tgt_file to . named $(basename $tgt_file)"
+            cp -rf $tgt_file .
         fi
-        
-        msg i "TF: $tf"
-        msg i "TP: $tp"
+        tgt_file="$(basename $tgt_file)"
+    fi
     
-        tf=$(basename $tf)        
-
-        msg i "Now TF is $tf"
-    
-        echo "COPY $tf $tp"             >> Dockerfile
-    done
+    echo "$tgt_cmd $tgt_file $tgt_dest" >> Dockerfile
 }
 
 DockerfileGenerate(){
     msg i "Generating Dockerfile for project $APP_NAME"
     
-    test -d Dockerfiles && remove Dockerfiles
-    
+    remove $REMOVE_FILES
+    remove Dockerfiles
+
     msg i "Create dir Docekrfiles"
     mkdir Dockerfiles
 
@@ -99,20 +103,66 @@ DockerfileGenerate(){
     if [ -d "Dockerfiles" ]
     then
         cd Dockerfiles
-        msg i "Attention: Work dir is CHANGED to $PWD"
+        msg i "Attention: Work dir is CHANGED to $(basename $PWD)"
     else
         msg e "Directory Dockerfiles not found"
     fi
 
-    test -z "$DF_CMD_BEFORE"    || DockerfileGenerateMaker "$DF_CMD_BEFORE"
-    test -z "$DF_CMD_DEFAULT"   || DockerfileGenerateMaker "$DF_CMD_DEFAULT"
-    test -z "$DF_CMD_AFTER"     || DockerfileGenerateMaker "$DF_CMD_AFTER"
+    check SensitiveResources
+
+    test -z "$DFC_BEFORE"    || DockerfileGenerateMaker "$DFC_BEFORE"
+    test -z "$DFC_DEFAULT"   || DockerfileGenerateMaker "$DFC_DEFAULT"
+    test -z "$DFC_AFTER"     || DockerfileGenerateMaker "$DFC_AFTER"
     
-    echo "ENTRYPOINT [\"/run.sh\"]"     >> Dockerfile
+    if [ ! -z "$DFC_ENTRYPOINT" ] 
+    then
+        if [ "$DFC_ENTRYPOINT" != "None" ]
+        then
+            echo "ENTRYPOINT [\"$DFC_ENTRYPOINT\"]" >> Dockerfile
+        fi
+    else
+        echo "ENTRYPOINT [\"/run.sh\"]"             >> Dockerfile
+    fi
 }
 
 Dockerfile(){
     case $1 in 
         Generate)       DockerfileGenerate  ;;
     esac
+}
+
+NodeImageBuild(){
+    DOCKER_IMAGE_NAME=$DOCKER_IMAGE_NAME:$DOCKER_TAG
+    ndir=/$app_name
+     reg="http://r.cnpmjs.org"
+     
+     npm_opts="cd $ndir && npm --prefix $ndir install $ndir --registry=$reg --production"
+
+    targets="$DOCKER_FILES_DIR/*"
+
+    msg i "Removing dir .svn"
+    remove $app_name/.svn
+
+    msg i "Sync $DOCKER_FILES_DIR to ws"
+    cp -rf $DOCKER_FILES_DIR/* .
+    
+    test "$app_sub" != "public" && echo "COPY $app_name /$app_name" >> Dockerfile
+    echo "RUN  $npm_opts"            >> Dockerfile
+    echo "ENTRYPOINT [\"/run.sh\"]"  >> Dockerfile
+
+    sed -i "s/APP/$app_name/" run.sh
+
+    image_build_time="`date +'%F %T'`"
+    msg i "Preparing to build image $DOCKER_IMAGE_NAME"
+    sudo docker build --no-cache -t $DOCKER_IMAGE_NAME .
+
+    test $? = 0 || msg e "Failed on last step, aborted"
+    
+    DockerLogin
+
+    msg i "Push image $DOCKER_IMAGE_NAME"
+    sudo docker push $DOCKER_IMAGE_NAME
+    test $? != 0 && msg e "Error encountered on last step"
+
+    msg i "Build image $DOCKER_IMAGE_NAME successfully completed"
 }

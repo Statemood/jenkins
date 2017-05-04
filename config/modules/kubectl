@@ -1,50 +1,58 @@
 #! /bin/bash
 
+### Default Settings
+# eg.: node-qa
+PROJECT_NAME="$app_prj-$APP_SUB"
+   NAMESPACE="$app_prj-$app_env"
+TEMPLATE_DIR="/data/dockerfiles/$app_prj/$APP_SUB"
+REPLICAS_NUM=1
+
 KubectlGet(){
     case $1 in
-        svc|SVC|Svc)        sudo kubectl get svc --namespace=$app_prj-$app_env          ;;
-        Pod|pod|pods|Pods)  sudo kubectl get pods -o wide --namespace=$app_prj-$app_env ;;
-        ClusterIP)          KubectlGet SVC | awk '{print $3}'                           ;;
+        svc|SVC)    sudo kubectl get svc --namespace=$NAMESPACE          ;;
+        pods|Pods)  sudo kubectl get pods -o wide --namespace=$NAMESPACE ;;
+        ClusterIP)  KubectlGet SVC | awk '{print $3}'                    ;;
     esac
 }
 
 KubectlPSCD(){
-    test -z "$KUBE_YAML_DIR" && KUBE_YAML_DIR=kube_config
-    test -d "$KUBE_YAML_DIR" || msg e "Require yaml files location"
-
-    cd $KUBE_YAML_DIR
-
-     yaml_rc="ReplicationController.yaml"
-    yaml_svc="Service.yaml"
+      kcs=$WORKSPACE/Dockerfiles/kube_config
+     f_rc="$kcs/ReplicationController.yaml"
+    f_svc="$kcs/Service.yaml"
+     
+    check file $f_rc
+    check file $f_svc
     
-    check file $yaml_rc
-    check file $yaml_svc
+    sed -i "s/APP_PRJ/$app_prj/"            $f_rc $f_svc
+    sed -i "s/APP_SUB/$APP_SUB/"            $f_rc $f_svc
+    sed -i "s/APP_PORT/$APP_PORT/g"         $f_rc $f_svc
+    sed -i "s/NAMESPACE/$NAMESPACE/"        $f_rc $f_svc
+    sed -i "s/DOCKER_TAG/$DOCKER_TAG/"      $f_rc $f_svc
+    sed -i "s/REPLICAS_NUM/$REPLICAS_NUM/"  $f_rc $f_svc
+    sed -i "s/PROJECT_NAME/$PROJECT_NAME/g" $f_rc $f_svc
 
-    prj_name="$app_prj-$APP_SUB"
-    svc_name="$prj_name-$app_env"
-    
-    sed -i "s/$prj_name.*/$svc_name/g" *.yaml
-
-    msg i "Check service $svc_name"
-    KubectlGet SVC | grep -q "$svc_name"
+    msg i "Check service $PROJECT_NAME"
+    KubectlGet SVC | grep -q "$PROJECT_NAME"
 
     if [ $? = 0 ]
     then
-        msg i "Service $svc_name already exist"
+        msg i "Service $PROJECT_NAME already exist"
     else
-        msg i "Create $svc_name"
-        sudo kubectl create -f $yaml_svc
+        msg i "Create $PROJECT_NAME"
+        sudo kubectl create -f $f_svc
     fi
 
-    msg i "Check pod $svc_name"
-    KubectlGet Pods | grep -q "$svc_name"
+    msg i "Check pod $PROJECT_NAME"
+    KubectlGet Pods | grep -q "$PROJECT_NAME"
 
     if [ $? = 0 ]
     then
-        msg i "Remove pod $svc_name"
-        sudo kubectl delete -f $yaml_rc
+        msg i "Remove pod $PROJECT_NAME"
+        sudo kubectl delete -f $f_rc
     fi
     
-    msg i "Create pod $svc_name"
-    sudo kubectl create -f $yaml_rc
+    msg i "Create pod $PROJECT_NAME"
+    sudo kubectl create -f $f_rc
+    
+    test $? = 0 && msg d "Successfully completed"
 }

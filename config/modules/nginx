@@ -1,6 +1,6 @@
 #! /bin/bash
 
-   NGX_CONF="/usr/local/nginx/conf"
+   NGX_CONF="/usr/local/server/tengine/conf"
    NGX_SBIN="$(dirname $NGX_CONF)/sbin/nginx"
    NGX_STAT="ps aux | grep -q '[n]ginx'"
 

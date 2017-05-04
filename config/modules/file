@@ -6,8 +6,9 @@ remove (){
     if [ -f "$1" ] || [ -d "$1" ]
     then
         rm -rf "$1"
+        test $? = 0 && msg i "Removed $1" || msg w "Can not remove $1"
     else
-        msg warning "No such file or directory: $1"
+        msg w "No such file or directory: $1"
     fi
 }
 
@@ -16,7 +17,7 @@ clean(){
         dir)
             # clean dir app/cache
 
-            test -d $2 || msg warning "Dir not found: $2"
+            test -d $2 || msg w "Dir not found: $2"
             rm -rf $WORKSPACE/$2
         ;;    
     esac

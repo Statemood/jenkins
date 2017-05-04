@@ -1,13 +1,25 @@
 #! /bin/bash
 
-   NODE_NPM_PATH=.
+NODE_NPM_DL_PATH=.
  NODE_SERVER_DIR=/pub/webnode
 NODE_SERVER_USER=root
+   NODE_WEB_ROOT="$NODE_SERVER_DIR"
+
+NODE_VERSION=v7.8.0-linux
+   NODE_PATH=$(dirname $CONFIG_DIR)/tools/node
+    NPM_PATH=$NODE_PATH
+
+NPM_REGISTRY="https://registry.npm.taobao.org"
+
+ NPM_OPTIONS="cnpm --registry=$NPM_REGISTRY"
+
 
 node_init(){
-    msg info "Initialize node config, set prefix to $NODE_NPM_PATH"
-    npm config set prefix $NODE_NPM_PATH
-    npm install
+    msg i "Initialize node config, set prefix to $NODE_NPM_DL_PATH"
+    $NPM_PATH/bin/cnpm config set prefix $NODE_NPM_DL_PATH
+
+    msg i "Start cnpm install" 
+    $NPM_PATH/bin/cnpm install
 }
 
 node_build(){
@@ -22,4 +34,37 @@ node_build(){
             test $? != 0 && msg error "build failed"
             ;;
     esac
+}
+
+NodeEnvironmentQA(){
+    load base
+    load file
+    load check
+    load docker
+    load kubectl
+    load password
+    
+        app_name="${CNES}_${app_prj}_$APP_SUB"
+      DOCKER_TAG="$SCM_REVISION"
+    REMOVE_FILES="$app_name/.svn"
+ 
+             reg="http://r.cnpmjs.org"
+        npm_opts="cd $NODE_SERVER_DIR/$app_name && npm --prefix $NODE_SERVER_DIR/$app_name install $app_name --registry=$reg --production"
+        APP_PORT=3333    
+
+      DFC_BEFORE=""
+       DFC_AFTER="RUN  $npm_opts"
+     DFC_DEFAULT="COPY $WS/$app_name $NODE_WEB_ROOT/$app_name"
+    #NodeImageBuild
+        
+    sed -i "s/(process.env.PORT || '.*');/(process.env.PORT || '$APP_PORT');/" $app_name/www
+
+    Dockerfile Generate
+
+    sed -i "s/APP/$app_name/" run.sh
+
+    DockerImage Build
+    DockerImage Push
+    
+    KubectlPSCD   
 }

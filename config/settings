@@ -58,7 +58,6 @@ app_sub="`echo $APP_SUB  | tr A-Z a-z | sed 's/-/_/g'`"
 
 PROJECT_CONFIG_DIR=$CONFIG_DIR/project/$app_prj/$app_sub
 
-# COMPANY info
          DOMAIN=""
 COMPANY_NAME_EN=""
            CNES=""
@@ -66,11 +65,11 @@ COMPANY_NAME_EN=""
            CSST=""
 ### Jenkins
     JKS_RUN_USER="jenkins"
-      JKS_DL_URL=
-   JKS_DL_URL_19=
+      JKS_DL_URL="https://downloads.$DOMAIN/"
+   JKS_DL_URL_19="$JKS_DL_URL"
 JKS_DOWNLOAD_URL="$JKS_DL_URL"
       JKS_DL_DIR="/data/www/downloads"
- JKS_DOCKER_HOST=
+ JKS_DOCKER_HOST=""
 
 # SSH/SCP Settings
  SSH_USER=jenkins
@@ -81,15 +80,20 @@ SCP_SPEED=51200
 
 RSYNC_EXCLUDE_LIST=$CONFIG_DIR/rsync-exclude.list
 
+PHP=/usr/local/php/bin/php
+
 # WEB RUN USER
  WEB_USER=nobody
 WEB_GROUP=nobody
+
+# WEB PATH
+WWW_ROOT=
 
    TOMCAT_HOME=/usr/local/tomcat
 TOMCAT_WEBAPPS=$TOMCAT_HOME/webapps
 
 # Sensitive Resources
-SENSITIVE_RESOURCES="^\.svn|^\.git|\.bak$|backup$|\.tar$|\.rar$|\.gz$|\.tgz$|\.zip$|\.exe$|\.sh$|\.log$"
+SENSITIVE_RESOURCES="^\.svn|^\.git|\.bak$|backup$|\.tar$|\.rar$|\.gz$|\.tgz$|\.zip$|\.exe$|\.log$"
 
 # Users Chack
  PERMISSION_DIR_USERS=$CONFIG_DIR/permission/users

@@ -1,3 +1,5 @@
+#! /bin/bash
+
 check(){
     case $1 in
         args)
@@ -21,7 +23,7 @@ check(){
         user|Permission)  
             case $APP_ENV in
                 DEV)    ALLOWED_USERS="`echo ${APP_ENV}-${APP_OBJ} | tr A-Z a-z`" ;;
-                QA)     ALLOWED_USERS="qa"  ;;
+                QA|UAT) ALLOWED_USERS="qa"  ;;
             esac
 
             allowed_groups=$PERMISSION_DIR_GROUPS
