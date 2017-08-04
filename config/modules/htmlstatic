@@ -1,0 +1,55 @@
+#! /bin/bash
+
+
+SSH_USER=root
+SSH_HOST=$GFS_HOST
+WEB_ROOT=$GFS_FILES_DIR/html_static/$app_prj/$app_env/$ENVIRONMENT_ID/$app_sub
+
+
+HTMLStatic_S4(){
+    load base
+    load file
+    load ssh
+    load check
+
+    SSH "test -d $WEB_ROOT || mkdir -p $WEB_ROOT"
+
+    msg info "Deploying S4 project html_static_$APP_SUB"
+
+    rsync -av -e "ssh" --exclude-from=$RSYNC_EXCLUDE_LIST * $SSH_USER@$SSH_HOST:$WEB_ROOT
+
+    if [ "$app_env" = "qa" ]
+    then
+        file_owner="root:root"
+        msg i "Change file onwer to $file_owner"
+
+        SSH "chown -R $file_owner $WEB_ROOT"
+    fi
+}
+
+HTMLStatic_S5(){
+    load base
+    load file
+    load node
+    load ssh
+    load check
+
+    WEB_ROOT=$GFS_FILES_DIR/html_static/$app_prj/$app_env/$ENVIRONMENT_ID
+
+    test "$APP_ENV" = "PD" && SSH_USER="root"
+    own_user="nobody:nobody"
+    msg i "Clean up dir: build"
+    remove build
+
+    node_init
+    node_build webpack
+
+    SSH "test -d $WEB_ROOT || mkdir -p $WEB_ROOT"
+
+    msg i "Uploading to $SSH_HOST:$WEB_ROOT"
+    rsync -av -e "ssh" build/* $SSH_USER@$SSH_HOST:$WEB_ROOT
+
+    msg i "Change file owner to $own_user"
+    SSH "chown -R $own_user $WEB_ROOT"
+}
+

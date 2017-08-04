@@ -7,13 +7,10 @@ MAVEN_VERSION="apache-maven-3.3.9"
     MAVEN_CMD="$MAVEN_HOME/bin/mvn"
    MAVEN_OPTS="-U clean -Dmaven.test.skip=true package dependency:tree"
 
-MAVEN_POM_EXTRA_ASPECTJ=$CONFIG_DIR/project/pay/pom-extra-aspectj.xml
-
 MAVEN_ARCHIVE_DIR=Archive/$APP_PRJ/$APP_SUB/`date +%Y/%m/%d`
 MAVEN_ARCHIVE_EXPIRES=15
 
 MavenActionAdapter(){
-    test "$MAVEN_POM_PREPROCESS" = "true" && MavenPomPreProcess 
     MavenBuild
 }
 
@@ -39,48 +36,25 @@ MavenArchiveController(){
         msg i "Remove $old_archive_dir"
         remove $old_archive_dir
     else
-        msg i "Maven archive not found. Skipped"
+        msg i "Maven archive(old) not found. Skipped"
     fi
 }
 
 
 MavenBuild(){
+    if [ ! -z "$MAVEN_WORKDIR" ]
+    then
+        cd $MAVEN_WORKDIR
+        msg i "Maven work dir has been changed to $MAVEN_WORKDIR"
+    fi
+
     msg i "Using $MAVEN_VERSION"
     msg i "With maven options: $MAVEN_OPTS"
     $MAVEN_CMD $MAVEN_OPTS
     
     test $? != 0 && msg error "Failed to build, aborted"     
 
-    msg info "Check file $PKG_FILE"
     check file $PKG_FILE
-    
-    cd $(dirname $PKG_FILE)
-    test -z "$PKG_NAME" || ln -s $(basename $PKG_FILE) $PKG_NAME
-    cd $WORKSPACE
-}
-
-MavenPomPreProcess(){
-    
-    msg i "Preprocessing file pom.xml"
-    sed -i '/jdk.version/s/1.6/1.7/' pom.xml 
-
-    total_line=`wc -l pom.xml | awk '{print $1}'`
-     head_line=`grep -n '<dependencies>' pom.xml | awk -F ':' '{print $1}'`
-     tail_line=`echo $total_line - $head_line | bc`
-
-    p_head=`mktemp $TEMP_DIR/XXXXXXXXXXXX`
-    p_tail=`mktemp $TEMP_DIR/XXXXXXXXXXXX`
-
-    head -$head_line pom.xml > $p_head
-    tail -$tail_line pom.xml > $p_tail
-
-    cat $MAVEN_POM_EXTRA_ASPECTJ    >> $p_head
-    cat $p_tail                     >> $p_head
-
-    cp -rf $p_head pom.xml
-
-    remove $p_head
-    remove $p_tail
 }
 
 # Rollback Maven project
@@ -104,6 +78,6 @@ mp_deploy(){
     msg info "Uploading $PKG_FILE to $SSH_HOST"
     SCP $PKG_FILE $WEB_ROOT/$(basename $PKG_FILE)
     
-    msg info "Restart $APP_NAME"
-    SSH "tomcat $APP_NAME restart"
+    msg info "Restart $PKG_NAME"
+    SSH "tomcat $PKG_NAME restart"
 }

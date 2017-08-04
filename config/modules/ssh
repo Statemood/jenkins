@@ -1,3 +1,5 @@
+#! /bin/bash
+
 SSH(){
     # SSH "CMD"
     test -z "$1" && msg error "require argument"
@@ -14,8 +16,21 @@ SCP(){
 }
 
 RSync(){
+    #rsync_exclude_t="`mktemp $TEMP_DIR/XXXXXXXX`"
+    #cp -f $RSYNC_EXCLUDE_LIST $rsync_exclude_t
+    #RSYNC_EXCLUDE_LIST=$rsync_exclude_t
+        
+    #if [ ! -z "$RSYNC_EXCULDE_EXTRA_FILES" ]
+    #then
+    #    for i in $RSYNC_EXCULDE_EXTRA_FILES
+    #    do
+    #        echo "$i" >> $RSYNC_EXCLUDE_LIST
+    #    done
+    #fi
+    
     test -z "$1" && msg e "RSync: Require argument"
     rsync $RSC_OPTS $1 $SSH_USER@$SSH_HOST:$WEB_ROOT 
+    #remove $rsync_exclude_t > /dev/null
 }
 
 

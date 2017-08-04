@@ -5,21 +5,27 @@ NODE_NPM_DL_PATH=.
 NODE_SERVER_USER=root
    NODE_WEB_ROOT="$NODE_SERVER_DIR"
 
-NODE_VERSION=v7.8.0-linux
+NODE_VERSION=v6.11.0-linux
    NODE_PATH=$(dirname $CONFIG_DIR)/tools/node
     NPM_PATH=$NODE_PATH
-
+    CNPM_BIN=$NPM_PATH/bin/cnpm
 NPM_REGISTRY="https://registry.npm.taobao.org"
-
  NPM_OPTIONS="cnpm --registry=$NPM_REGISTRY"
 
+ APP_PORT=3333
+ APP_NAME="${CNES}_${app_prj}_${APP_SUB}"
+ 
+ SSH_USER="root"
+ SSH_HOST="$GFS_HOST"
+ OWN_USER="$SSH_USER"
+OWN_GROUP="$OWN_USER"
 
 node_init(){
     msg i "Initialize node config, set prefix to $NODE_NPM_DL_PATH"
-    $NPM_PATH/bin/cnpm config set prefix $NODE_NPM_DL_PATH
+    $CNPM_BIN config set prefix $NODE_NPM_DL_PATH
 
     msg i "Start cnpm install" 
-    $NPM_PATH/bin/cnpm install
+    $CNPM_BIN --prefix . install . --registry=$NPM_REGISTRY --production
 }
 
 node_build(){
@@ -36,35 +42,27 @@ node_build(){
     esac
 }
 
-NodeEnvironmentQA(){
-    load base
-    load file
-    load check
-    load docker
-    load kubectl
-    load password
-    
-        app_name="${CNES}_${app_prj}_$APP_SUB"
-      DOCKER_TAG="$SCM_REVISION"
-    REMOVE_FILES="$app_name/.svn"
- 
-             reg="http://r.cnpmjs.org"
-        npm_opts="cd $NODE_SERVER_DIR/$app_name && npm --prefix $NODE_SERVER_DIR/$app_name install $app_name --registry=$reg --production"
-        APP_PORT=3333    
+NodeProjectController(){
+    test -z "$GFS_FILE_NODE_DIR" && GFS_FILE_NODE_DIR=$GFS_FILES_DIR/$app_prj/$app_env/$ENVIRONMENT_ID/$APP_NAME
+     
+    test "$APP_PRJ" != "JOBS" && DockerfileCopy
 
-      DFC_BEFORE=""
-       DFC_AFTER="RUN  $npm_opts"
-     DFC_DEFAULT="COPY $WS/$app_name $NODE_WEB_ROOT/$app_name"
-    #NodeImageBuild
-        
-    sed -i "s/(process.env.PORT || '.*');/(process.env.PORT || '$APP_PORT');/" $app_name/www
+    if [ -f package.json ]
+    then
+        msg i "检测到 package.json 文件, 开始执行 $npm_install"
+        node_init
+        msg i "已成功执行 npm install"
+    fi
 
-    Dockerfile Generate
+    msg i "Environment  ID: $ENVIRONMENT_ID"
+    msg i "Environment TAG: $APP_ENV"
+    msg i "开始上传文件至GlusterFS: $GFS_FILE_NODE_DIR"
+    rsync -av --exclude-from=$RSYNC_EXCLUDE_LIST . $SSH_USER@$SSH_HOST:$GFS_FILE_NODE_DIR
+    msg i "上传完成"
 
-    sed -i "s/APP/$app_name/" run.sh
-
-    DockerImage Build
-    DockerImage Push
-    
-    KubectlPSCD   
+    if [ ! -z "$OWN_USER" ]
+    then
+        msg i "更改文件所有者为 $OWN_USER:$OWN_GROUP"
+        SSH "chown -R $OWN_USER:$OWN_GROUP $GFS_FILE_NODE_DIR"
+    fi
 }

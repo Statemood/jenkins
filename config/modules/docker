@@ -6,14 +6,13 @@ DOCKER_REGISTRY=registry.${DOMAIN}
 DOCKER_LOGIN_USER=registry
 DOCKER_LOGIN_PASSWORD=
 DOCKER_BUILD_HOST=
-DOCKER_BUILD_PATH=$(dirname $WORKSPACE)/${APP_PRJ}_${APP_OBJ}_${APP_ENV}_${APP_ACT}_Docker
-DOCKER_BUILD_TO_RUN_LIST=$TMP_DIR/docker_build_list-$APP_PRJ-$APP_OBJ-$APP_ENV
 
-DOCKER_FILES_DIR=/data/dockerfiles/$app_prj/$APP_SUB
-
+DOCKER_FILES_DIR=/data/dockerfiles/$app_prj/$app_env
 DOCKER_IMAGE_NAME="$DOCKER_REGISTRY/project/$app_prj/$APP_SUB"
-
 DOCKER_BUILD_OPTS="--no-cache"
+
+ TEMPLATE_COMMON="$DOCKER_FILES_DIR/Dockerfiles"
+TEMPLATE_SPECIFY=$(dirname $TEMPLATE_COMMON)/$APP_SUB/Dockerfiles
 
 DockerLogin(){
     DOCKER_LOGIN_PASSWORD="`Password docker`"
@@ -46,6 +45,7 @@ DockerImageBuild(){
 
     msg i "Build image $DOCKER_IMAGE_NAME:$DOCKER_TAG with docker options $DOCKER_BUILD_OPTS"
     sudo docker build $DOCKER_BUILD_OPTS -t $DOCKER_IMAGE_NAME:$DOCKER_TAG .
+    test $? = 0 && msg i "Successfully completed build image" || msg e "Failed to build image"
 
     msg i "Image $DOCKER_IMAGE_NAME size: `DockerImageSize`"
 }
@@ -53,7 +53,7 @@ DockerImageBuild(){
 DockerImagePush(){
     DockerLogin
     msg i "Push $DOCKER_IMAGE_NAME:$DOCKER_TAG"
-    sudo docker push $DOCKER_IMAGE_NAME
+    sudo docker push $DOCKER_IMAGE_NAME:$DOCKER_TAG
 }
 
 DockerImage(){
@@ -66,103 +66,17 @@ DockerImage(){
     esac
 }
 
-DockerfileGenerateMaker(){
-    dc_command="$1"
-       tgt_cmd="`echo $dc_command | awk '{print $1}'`"
-      tgt_file="`echo $dc_command | awk '{print $2}'`"
-      tgt_dest="`echo $dc_command | awk '{print $3}'`"
-    
-    echo "$dc_command" | grep -q "^COPY "
-    if [ $? = 0 ]
-    then
-        tgt_file="`echo $dc_command | awk '{print $2}'`"
-        echo $tgt_file | grep -q "^/"
-        if [ $? = 0 ]
-        then
-            msg i "Copy $tgt_file to . named $(basename $tgt_file)"
-            cp -rf $tgt_file .
-        fi
-        tgt_file="$(basename $tgt_file)"
-    fi
-    
-    echo "$tgt_cmd $tgt_file $tgt_dest" >> Dockerfile
-}
-
-DockerfileGenerate(){
-    msg i "Generating Dockerfile for project $APP_NAME"
-    
-    remove $REMOVE_FILES
+DockerfileCopy(){
     remove Dockerfiles
-
-    msg i "Create dir Docekrfiles"
-    mkdir Dockerfiles
-
-    msg i "Copy $DOCKER_FILES_DIR" 
-    cp -rf $DOCKER_FILES_DIR/* Dockerfiles
     
-    if [ -d "Dockerfiles" ]
+    msg i "Copy Dockerfiles"
+        
+    if [ -d $TEMPLATE_SPECIAL ]
     then
-        cd Dockerfiles
-        msg i "Attention: Work dir is CHANGED to $(basename $PWD)"
+        cp -rf $TEMPLATE_SPECIFY . 
+        msg i "Use specify Dockerfiles"
     else
-        msg e "Directory Dockerfiles not found"
+        cp -rf $TEMPLATE_COMMON .
+        msg i "Use common Dockerfiles"
     fi
-
-    check SensitiveResources
-
-    test -z "$DFC_BEFORE"    || DockerfileGenerateMaker "$DFC_BEFORE"
-    test -z "$DFC_DEFAULT"   || DockerfileGenerateMaker "$DFC_DEFAULT"
-    test -z "$DFC_AFTER"     || DockerfileGenerateMaker "$DFC_AFTER"
-    
-    if [ ! -z "$DFC_ENTRYPOINT" ] 
-    then
-        if [ "$DFC_ENTRYPOINT" != "None" ]
-        then
-            echo "ENTRYPOINT [\"$DFC_ENTRYPOINT\"]" >> Dockerfile
-        fi
-    else
-        echo "ENTRYPOINT [\"/run.sh\"]"             >> Dockerfile
-    fi
-}
-
-Dockerfile(){
-    case $1 in 
-        Generate)       DockerfileGenerate  ;;
-    esac
-}
-
-NodeImageBuild(){
-    DOCKER_IMAGE_NAME=$DOCKER_IMAGE_NAME:$DOCKER_TAG
-    ndir=/$app_name
-     reg="http://r.cnpmjs.org"
-     
-     npm_opts="cd $ndir && npm --prefix $ndir install $ndir --registry=$reg --production"
-
-    targets="$DOCKER_FILES_DIR/*"
-
-    msg i "Removing dir .svn"
-    remove $app_name/.svn
-
-    msg i "Sync $DOCKER_FILES_DIR to ws"
-    cp -rf $DOCKER_FILES_DIR/* .
-    
-    test "$app_sub" != "public" && echo "COPY $app_name /$app_name" >> Dockerfile
-    echo "RUN  $npm_opts"            >> Dockerfile
-    echo "ENTRYPOINT [\"/run.sh\"]"  >> Dockerfile
-
-    sed -i "s/APP/$app_name/" run.sh
-
-    image_build_time="`date +'%F %T'`"
-    msg i "Preparing to build image $DOCKER_IMAGE_NAME"
-    sudo docker build --no-cache -t $DOCKER_IMAGE_NAME .
-
-    test $? = 0 || msg e "Failed on last step, aborted"
-    
-    DockerLogin
-
-    msg i "Push image $DOCKER_IMAGE_NAME"
-    sudo docker push $DOCKER_IMAGE_NAME
-    test $? != 0 && msg e "Error encountered on last step"
-
-    msg i "Build image $DOCKER_IMAGE_NAME successfully completed"
 }

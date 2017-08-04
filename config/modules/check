@@ -20,10 +20,11 @@ check(){
                 remove "$rs"
             done
             ;;
-        user|Permission)  
+        user|users|Permission)  
             case $APP_ENV in
                 DEV)    ALLOWED_USERS="`echo ${APP_ENV}-${APP_OBJ} | tr A-Z a-z`" ;;
                 QA|UAT) ALLOWED_USERS="qa"  ;;
+                PD)     ALLOWED_USERS="qa"  ;;
             esac
 
             allowed_groups=$PERMISSION_DIR_GROUPS

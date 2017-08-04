@@ -1,5 +1,7 @@
+#! /bin/bash
+
 msg_print(){
-    echo -e "`date +'%F %T'` $1"
+    echo -e "`date +'%F %T.%N' | cut -c 1-23` $1"
 }
 
 msg(){
@@ -9,5 +11,22 @@ msg(){
         i|info)       msg_print "INFO: $2"      &&  return 0 ;;
         w|warning)    msg_print "WARNING: $2"   &&  return 0 ;;
         h|hello)      msg_print "Hello world"   &&  return 0 ;;
+    esac
+}
+
+Time(){
+    case $1 in
+        Point)  
+            timepoint_f="`mktemp $TEMP/XXXXXXXXXXXX`"
+
+            case $2 in 
+                a|start)    echo "`date +%s`" >  $timepoint_f   ;;
+                b|stop)     echo "`date +%s`" >> $timepoint_f   ;;
+                c|used)     
+                            echo "`tail -1 $timepoint_f` - `head -1 $timepoint_f`" | bc
+                            remove $timepoint_f
+                            ;;
+            esac
+            ;;
     esac
 }

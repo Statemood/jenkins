@@ -1,0 +1,49 @@
+#! /bin/bash
+
+
+APP_PORT=8080
+SSH_USER="root"
+SSH_HOST="$GFS_HOST"
+
+WEBAPPS_DIR="$GFS_FILES_DIR/$app_prj/$app_env/webapps/$APP_SUB"
+
+LIMIT_MIN_CPU="100m"
+LIMIT_MAX_CPU="400m"
+
+LIMIT_MIN_MEM="128Mi"
+LIMIT_MAX_MEM="512Mi"
+
+# liveness initial delay seconds
+LIVE_CHECK_IDS=90
+
+# liveness timeout
+LIVE_CHECK_TMO=3
+
+PaymentController(){
+    load base
+    load file
+    load check
+    load ssh
+    load maven
+    load docker
+    load kubectl
+
+    test -z "$PKG_NAME"     && PKG_NAME="$(basename $PKG_FILE)"
+    test -z "$REMOVE_FILES" && remove $REMOVE_FILES
+
+    if [ "$MVN_SKIP" != "true" ]
+    then
+        MavenActionAdapter
+
+        MavenArchiveController
+
+        msg i "Upload $PKG_FILE to $PKG_NAME"
+        SCP $PKG_FILE $WEBAPPS_DIR/$PKG_NAME
+    else
+        msg i "Skipped maven build"
+    fi
+    
+    DockerfilesCopy
+
+    KubectlPSCD
+}

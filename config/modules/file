@@ -1,3 +1,4 @@
+#! /bin/bash
 fsize(){
     test -f "$1" && du -h "$1" | awk '{print $1}' || msg warning "File $1 not found"
 }
