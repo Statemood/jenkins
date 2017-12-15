@@ -1,3 +1,0 @@
-Mail(){
-    $CONFIG_DIR/mail.py "$1" "$2" "$3"
-}

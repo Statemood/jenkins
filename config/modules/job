@@ -1,10 +1,5 @@
 #! /bin/bash
 
-NAMESPACE=$app_prj
- APP_NAME="${CNES}_$app_sub"
- WEB_ROOT="$GFS_FILES_DIR/$app_prj/$app_env/$ENVIRONMENT_ID/$APP_NAME"
- TEMPLATE="/data/dockerfiles/$app_prj/$app_env/$APP_SUB"
-
 JobActionController(){
     load base
     load file
@@ -13,14 +8,13 @@ JobActionController(){
     load docker
     load kubectl
 
-    POD_CONFIG="Dockerfiles/Job.yaml"
-      
-    test -f $POD_CONFIG && sudo kubectl delete -f $POD_CONFIG
+    POD_CONFIG="$DOCKER_TEMPLATE_DN/Job.yaml"
 
-    remove Dockerfiles
+    test -f $POD_CONFIG && kubectl delete -f $POD_CONFIG
 
-    DockerfilesCopy
+    DockerfileInit
+
     sed -i "s#JOB_TARGET_VALUE#$TARGET#" $POD_CONFIG
 
-    KubectlPSCD
+    KubeController
 }

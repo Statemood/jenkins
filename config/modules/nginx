@@ -25,13 +25,14 @@ Nginx(){
         start)      action="$NGX_START"    ;;
         stop)       action="$NGX_STOP"     ;;
         reload)     action="$NGX_RELOAD"   ;;
-        offline)    action="sed -i \"/$WEB_HOST/s/server/#server/\" $ngx_conf"    ;;
-        online)     action="sed -i \"/$WEB_HOST/s/#server/server/\" $ngx_conf"    ;;
+        offline)    action="sed -i \"/$WEB_HOST/s/server/#server/\"   $ngx_conf"    ;;
+        online)     action="sed -i \"/$WEB_HOST/s/#.*server/server/\" $ngx_conf"    ;;
     esac
 
     for ngx_server in $NGX_HOST
     do
-        SSH_HOST="$ngx_server"
+        SSH_HOST="$IP_10.$ngx_server"
+        msg i "Preparing to $1 $WEB_HOST on $SSH_HOST"
 
         SSH "$action"
     done

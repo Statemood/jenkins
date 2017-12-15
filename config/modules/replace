@@ -1,0 +1,44 @@
+#! /bin/bash
+
+ReplaceKubeFile(){
+    # 替换 RC/SVC 文件   
+    msg a "Replacing rc/svc files"
+
+    # 如任务 WEB_api_QA
+    sed -i "s/APP_PRJ/$app_prj/g"                   $f_lists    # app_prj=web
+    sed -i "s/APP_SUB/$APP_SUB/g"                   $f_lists    # APP_SUB=api
+    sed -i "s/APP_ENV/$app_env/g"                   $f_lists    # app_env=qa
+    sed -i "s/APP_PORT/$APP_PORT/g"                 $f_lists    # APP_PORT=80
+    sed -i "s/APP_NAME/$APP_NAME/g"                 $f_lists    # APP_NAME=$APP_SUB
+    sed -i "s/NAMESPACE/$NAMESPACE/g"               $f_lists    # NAMESPACE=$app_prj-$app_env
+    sed -i "s/DOCKER_TAG/$DOCKER_TAG/g"             $f_lists    # 
+    sed -i "s/PROJECT_NAME/$PROJECT_NAME/g"         $f_lists    # 
+    sed -i "s/REPLICAS_NUM/$REPLICAS_NUM/"          $f_lists    # 1
+    sed -i "s/K8S_NODE_ZONE/$K8S_NODE_ZONE/"        $f_lists    # zone
+    sed -i "s/ENVIRONMENT_ID/$ENVIRONMENT_ID/g"     $f_lists    # 21 or 22
+
+    sed -i "s#WRITE_DIRS#$WRITE_DIRS#"              $f_lists    # 
+
+    sed -i "s#LIVENESS_URL#$LIVENESS_URL#"          $f_lists    # livenessProbe
+    sed -i "s/LIVENESS_IDS/$LIVENESS_IDS/"          $f_lists    # livenessProbe initialDelaySeconds
+    sed -i "s/LIVENESS_TIMEOUT/$LIVENESS_TIMEOUT/"  $f_lists    # livenessProbe timeout
+
+    sed -i "s/LIVENESS_PERIOD/$LIVENESS_PERIOD/"    $f_lists    # livenessProbe Period Seconds
+
+    sed -i "s#READINESS_URL#$READINESS_URL#"            $f_lists  # readinessProbe
+    sed -i "s/READINESS_IDS/$READINESS_IDS/"            $f_lists  # readinessProbe initialDelaySeconds
+    sed -i "s/READINESS_TIMEOUT/$READINESS_TIMEOUT/"    $f_lists  # readinessProbe timeout
+    sed -i "s/READINESS_PERIOD/$READINESS_PERIOD/"      $f_lists  # readinessProbe Period Seconds
+
+    sed -i "s/CONFIG_DIR_NAME/$CONFIG_DIR_NAME/g"       $f_lists
+
+    sed -i "s#APP_CONFIG_DIR#$APP_CONFIG_DIR#g"         $f_lists
+    sed -i "s/APP_CONTEXT_FILE/$APP_CONTEXT_FILE/g"     $f_lists
+ 
+    # Resources limits
+    sed -i "s/LIMIT_MIN_CPU/$LIMIT_MIN_CPU/"        $f_lists
+    sed -i "s/LIMIT_MAX_CPU/$LIMIT_MAX_CPU/"        $f_lists
+
+    sed -i "s/LIMIT_MIN_MEM/$LIMIT_MIN_MEM/"        $f_lists
+    sed -i "s/LIMIT_MAX_MEM/$LIMIT_MAX_MEM/"        $f_lists
+}

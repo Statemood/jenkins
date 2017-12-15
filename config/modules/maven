@@ -5,7 +5,8 @@
 MAVEN_VERSION="apache-maven-3.3.9"
    MAVEN_HOME="/data/app/jenkins/tools/$MAVEN_VERSION"
     MAVEN_CMD="$MAVEN_HOME/bin/mvn"
-   MAVEN_OPTS="-U clean -Dmaven.test.skip=true package dependency:tree"
+
+test -z "$MAVEN_OPTS" && MAVEN_OPTS="-U clean -Dmaven.test.skip=true package dependency:tree"
 
 MAVEN_ARCHIVE_DIR=Archive/$APP_PRJ/$APP_SUB/`date +%Y/%m/%d`
 MAVEN_ARCHIVE_EXPIRES=15
@@ -16,27 +17,26 @@ MavenActionAdapter(){
 
 MavenArchiveController(){
      maven_archive_target=$PKG_FILE
-    archive_saved_to_name=$JKS_DL_DIR/$MAVEN_ARCHIVE_DIR/$BUILD_NUMBER-$(basename $maven_archive_target)         
+    archive_saved_to_name=$JKS_DL_DIR/$MAVEN_ARCHIVE_DIR/$BUILD_NUMBER-$(basename $maven_archive_target)
           old_archive_dir=$JKS_DL_DIR/$MAVEN_ARCHIVE_DIR/`date -d "$MAVEN_ARCHIVE_EXPIRES days ago" ++%Y/%m/%d`
                      astd=$(dirname $archive_saved_to_name)
     if [ ! -d $astd ]
-    then 
-        msg i "Create dir $astd"
+    then
         mkdir -p $astd
+        msg i "Created dir $astd"
     fi
 
     test -f "$maven_archive_target" && cp -rf $maven_archive_target $archive_saved_to_name
-            
+
     msg i "Maven Project Archived to:  $archive_saved_to_name"
     msg i "Maven Project Archived URL: $JKS_DL_URL/$MAVEN_ARCHIVE_DIR/$(basename $archive_saved_to_name)"
     msg i "Maven Project Archived MD5: `md5sum $archive_saved_to_name | awk '{print $1}'`"
 
     if [ -d "$old_archive_dir" ]
     then
-        msg i "Remove $old_archive_dir"
         remove $old_archive_dir
     else
-        msg i "Maven archive(old) not found. Skipped"
+        msg a "Maven archive(old) not found. Skipped"
     fi
 }
 
@@ -45,39 +45,14 @@ MavenBuild(){
     if [ ! -z "$MAVEN_WORKDIR" ]
     then
         cd $MAVEN_WORKDIR
-        msg i "Maven work dir has been changed to $MAVEN_WORKDIR"
+        msg a "Maven work dir has been changed to $MAVEN_WORKDIR"
     fi
 
     msg i "Using $MAVEN_VERSION"
     msg i "With maven options: $MAVEN_OPTS"
     $MAVEN_CMD $MAVEN_OPTS
-    
-    test $? != 0 && msg error "Failed to build, aborted"     
 
-    check file $PKG_FILE
-}
+    test $? != 0 && msg error "Failed to build, aborted"
 
-# Rollback Maven project
-mp_rollback(){
-          PROJECT="$APP_PRJ-$project-app"
-          RBD2_ID=`echo $CHOICE_ONE | awk -F '/' '{print $6}'`
-         RBD_NAME=`echo $CHOICE_ONE | awk -F '/' '{print $5}'`
-
-       CLASS_NAME="${MOSAI_CLASS}.${APP_PRJ}"
-      MODULES_DIR="$JENKINS_HOME/jobs/${RBD_NAME}/modules" 
-       BUILDS_DIR="${MODULES_DIR}/${CLASS_NAME}\$${PROJECT}/builds/$RBD2_ID"
-      ARCHIVE_DIR="${BUILDS_DIR}/archive/${CLASS_NAME}/${PROJECT}"
-         SNAPSHOT=`grep "Building $PROJECT" $BUILDS_DIR/log | awk -F "$PROJECT " '{print $2}'`
-    ROLLBACK_FILE=$ARCHIVE_DIR/$SNAPSHOT/${PROJECT}-${SNAPSHOT}.war
-}
-
-# Deploy Maven project
-mp_deploy(){
-    # Uploading
-
-    msg info "Uploading $PKG_FILE to $SSH_HOST"
-    SCP $PKG_FILE $WEB_ROOT/$(basename $PKG_FILE)
-    
-    msg info "Restart $PKG_NAME"
-    SSH "tomcat $PKG_NAME restart"
+    check exist $APP_FILE
 }

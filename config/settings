@@ -11,7 +11,7 @@ case `uname -s` in
          NODE_OS="OSX"
          TMP_DIR=/tmp/jenkins
         TEMP_DIR=$TMP_DIR
-        
+
         BIN_SED=/usr/local/bin/sed
         BIN_MD5=md5
         ;;
@@ -27,9 +27,9 @@ esac
 
 test -d $TMP_DIR || mkdir -p $TMP_DIR
 
-BUILD_LOG=$JENKINS_HOME/jobs/$JOB_NAME/builds/$BUILD_NUMBER/log
-
-test -f "$BUILD_LOG" && BUILD_USER=`head -1 $BUILD_LOG | awk -F '0m' '{print $2}'`
+BUILDS_DIR=$JENKINS_HOME/jobs/$JOB_NAME/builds
+BUILD_LOG=$BUILDS_DIR/$BUILD_NUMBER/log
+#test -f "$BUILD_LOG" && BUILD_USER=`head -1 $BUILD_LOG | awk -F '0m' '{print $2}'`
 
 GENV_FILE_NAME=$TMP_DIR/${JOB_NAME}_${BUILD_NUMBER}
 
@@ -43,7 +43,7 @@ APP_SUB_B="`echo $APP_SUB | awk -F '-' '{print $2}'`"
 APP_SUB_C="`echo $APP_SUB | awk -F '-' '{print $3}'`"
 APP_SUB_D="`echo $APP_SUB | awk -F '-' '{print $4}'`"
 APP_SUB_E="`echo $APP_SUB | awk -F '-' '{print $5}'`"
- 
+
 echo "$APP_ENV" | egrep -q "DEV|QA|PD"
 
 if [ $? != 0 ] || [ -z "$APP_ENV" ]
@@ -58,36 +58,25 @@ app_sub="`echo $APP_SUB  | tr A-Z a-z | sed 's/-/_/g'`"
 
 PROJECT_CONFIG_DIR=$CONFIG_DIR/project/$app_prj/$app_sub
 
-         DOMAIN=""
-COMPANY_NAME_EN=""
-           CNES=""
-
-           CSST=""
 ### Jenkins
-    JKS_RUN_USER="jenkins"
-      JKS_DL_URL="https://downloads.$DOMAIN/"
-   JKS_DL_URL_19="$JKS_DL_URL"
-JKS_DOWNLOAD_URL="$JKS_DL_URL"
-      JKS_DL_DIR="/data/www/downloads"
- JKS_DOCKER_HOST=""
+JKS_RUN_USER="jenkins"
 
 # SSH/SCP Settings
- SSH_USER=jenkins
+ SSH_USER="jenkins"
  SSH_PORT=22
  SSH_OPTS=
+SCP_SPEED=51200   # 50M
 
-SCP_SPEED=51200
+RSYNC_EXCLUDE_LIST="$CONFIG_DIR/rsync-exclude.list"
 
-RSYNC_EXCLUDE_LIST=$CONFIG_DIR/rsync-exclude.list
-
-PHP=/usr/local/php/bin/php
+# PHP
+PHP="/usr/local/php/bin/php"
 
 # WEB RUN USER
- WEB_USER=nobody
-WEB_GROUP=nobody
+ WEB_USER="nobody"
+WEB_GROUP="nobody"
 
-# WEB PATH
-WWW_ROOT=
+# Tomcat
 
    TOMCAT_HOME=/usr/local/tomcat
 TOMCAT_WEBAPPS=$TOMCAT_HOME/webapps

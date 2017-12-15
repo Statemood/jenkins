@@ -4,67 +4,39 @@
 # eg.: node-qa
 #PROJECT_NAME="$app_prj-$APP_SUB-$SERVER_ID"
 
-
-if [ "$app_prj" = "pay" ]
-then
-    PROJECT_NAME="$APP_SUB"
-    ENVIRONMENT_ID=21
-else
-    PROJECT_NAME="$APP_SUB-$ENVIRONMENT_ID"
-fi
-
+NAMESPACE="$app_prj-$app_env"
 test -z "$APP_NAME"     && APP_NAME="$APP_SUB"
-
-   NAMESPACE="$app_prj-$app_env"
-REPLICAS_NUM=1
+test -z "$REPLICAS_NUM" && REPLICAS_NUM=1
 
 KubectlGet(){
     case $1 in
-        svc|SVC)    sudo kubectl get svc --namespace=$NAMESPACE          ;;
-        pods|Pods)  sudo kubectl get pods -o wide --namespace=$NAMESPACE ;;
-        ClusterIP)  KubectlGet SVC | awk '{print $3}'                    ;;
+        svc|SVC)    kubectl get svc          -n $NAMESPACE ;;
+        deploy)     kubectl get deploy       -n $NAMESPACE ;;
+        rs|RS)      kubectl get rs   -o wide -n $NAMESPACE ;;
+        pods|Pods)  kubectl get pods -o wide -n $NAMESPACE ;;
+        ClusterIP)  KubectlGet SVC | awk '{print $3}'      ;;
     esac
 }
 
-KubectlPSCD(){
-    test "$app_prj" = "jobs" && pod_config="Job.yaml" || pod_config="ReplicationController.yaml"
+KubeController(){
+    load replace
 
-      kcs=$WS/Dockerfiles
+    kcs=$WS/Dockerfiles
+
+    test -f $kcs/Deployments.yaml && pod_config="Deployments.yaml"
+
      f_rc="$kcs/$pod_config"
     f_svc="$kcs/Service.yaml"
-    
+
     check file $f_rc
 
     test -f $f_rc  && f_lists="$f_rc"
     test -f $f_svc && f_lists="$f_lists $f_svc"
-    
-    msg i "Replacing rc/svc files"
 
-    sed -i "s/APP_PRJ/$app_prj/g"                   $f_lists
-    sed -i "s/APP_SUB/$APP_SUB/g"                   $f_lists
-    sed -i "s/APP_ENV/$app_env/g"                   $f_lists
-    sed -i "s/APP_PORT/$APP_PORT/g"                 $f_lists
-    sed -i "s/APP_NAME/$APP_NAME/g"                 $f_lists
-    sed -i "s/NAMESPACE/$NAMESPACE/g"               $f_lists
-    sed -i "s/DOCKER_TAG/$DOCKER_TAG/g"             $f_lists
-    sed -i "s/PROJECT_NAME/$PROJECT_NAME/g"         $f_lists
-    sed -i "s/REPLICAS_NUM/$REPLICAS_NUM/"          $f_lists
-    sed -i "s/ENVIRONMENT_ID/$ENVIRONMENT_ID/g"     $f_lists
+    ReplaceKubeFile
 
-    # Health Check
-    sed -i "s#LIVE_CHECK_URL#$LIVE_CHECK_URL#"      $f_lists        # livenessProbe
-    sed -i "s/LIVE_CHECK_IDS/$LIVE_CHECK_IDS/"      $f_lists        # livenessProbe initialDelaySeconds
-    sed -i "s/LIVE_CHECK_TMO/$LIVE_CHECK_TMO/"      $f_lists        # livenessProbe timeout
- 
-    # Resources limits
-    sed -i "s/LIMIT_MIN_CPU/$LIMIT_MIN_CPU/"        $f_lists
-    sed -i "s/LIMIT_MAX_CPU/$LIMIT_MAX_CPU/"        $f_lists
+    DockerfileBackup
 
-    sed -i "s/LIMIT_MIN_MEM/$LIMIT_MIN_MEM/"        $f_lists
-    sed -i "s/LIMIT_MAX_MEM/$LIMIT_MAX_MEM/"        $f_lists
-
-    test "$app_env" = "pre" && PROJECT_NAME="$APP_SUB"
-   
     if [ -f $f_svc ]
     then
         msg i "Check service $PROJECT_NAME"
@@ -72,24 +44,27 @@ KubectlPSCD(){
 
         if [ $? = 0 ]
         then
-            msg i "Service $PROJECT_NAME already exist"
+            msg a "Service $PROJECT_NAME already exist"
         else
-            msg i "Create $PROJECT_NAME"
-            sudo kubectl create -f $f_svc
+            msg a "Create $PROJECT_NAME"
+            kubectl create -f $f_svc
         fi
     fi
 
-    msg i "Check pod $PROJECT_NAME"
-    KubectlGet Pods | grep -q "$PROJECT_NAME"
+    msg i "Check deployment $PROJECT_NAME"
+    KubectlGet deploy | grep -q "$PROJECT_NAME"
 
     if [ $? = 0 ]
     then
-        msg i "Remove pod $PROJECT_NAME"
-        sudo kubectl delete -f $f_rc
+        #msg a "Update deployment $PROJECT_NAME image to $DOCKER_IMAGE_NAME:$DOCKER_TAG"
+        #kubectl set image deploy/$PROJECT_NAME $PROJECT_NAME=$DOCKER_IMAGE_NAME:$DOCKER_TAG -n $NAMESPACE
+
+        kubectl delete -f $f_rc
+        kubectl create -f $f_rc
+    else
+        msg a "Create deployment $PROJECT_NAME"
+        kubectl create -f $f_rc
     fi
-    
-    msg i "Create pod $PROJECT_NAME"
-    sudo kubectl create -f $f_rc
-    
+
     test $? = 0 && msg d "Successfully completed"
 }

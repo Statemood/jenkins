@@ -1,0 +1,58 @@
+#! /bin/bash
+
+APP_PORT=8080
+SSH_USER=""
+SSH_HOST=""
+
+LIMIT_MIN_CPU="400m"
+LIMIT_MAX_CPU="600m"
+
+LIMIT_MIN_MEM="256Mi"
+LIMIT_MAX_MEM="2048Mi"
+
+# liveness initial delay seconds
+LIVENESS_IDS=180
+
+# liveness timeout
+LIVENESS_TIMEOUT=3
+
+READINESS_IDS=60
+
+JavaProjectController(){
+# Usage:
+#
+# load java
+#
+# JavaProjectController
+
+    load base
+    load file
+    load check
+    load ssh
+    load maven
+    load docker
+    load kubectl
+
+    REMOVE_FILES="$DOCKER_TEMPLATE_DN"
+    WEB_ROOT_DIR="$TOMCAT_WEBAPPS"
+
+    test -z "$DOCKER_TAG"       &&    DOCKER_TAG="$SCM_REVISION"
+    test -z "$READINESS_URL"    && READINESS_URL="$LIVENESS_URL"
+    test -z "$REMOVE_FILES"     &&         remove $REMOVE_FILES
+
+    if [ "$MVN_SKIP" != "true" ]
+    then
+        MavenActionAdapter
+    else
+        msg i "Skipped maven build"
+    fi
+
+    if [ "$DOCKER_SKIP" != "true" ]
+    then
+        DockerfileInit
+        DockerImage Build
+        DockerImage Push
+    fi
+
+    test "$KUBECTL_SKIP" = "true" || KubeController
+}

@@ -1,10 +1,32 @@
 #! /bin/bash
 
 # Change owner to nobody
-WRITE_DIRS="data"
+WRITE_DIRS=""
 
-APP_PORT=80
-APP_NAME="${CNES}_${APP_SUB}"
+APP_PORT=
+APP_NAME=""
+
+LIVENESS_URL="/health_check.php"
+LIVENESS_IDS=30
+LIVENESS_TIMEOUT=5
+
+WEB_ROOT="$GFS_FILES_DIR/$app_prj/$app_env/$ENVIRONMENT_ID/$APP_NAME"
+
+SERVER_NAME="$APP_SUB.$DOMAIN"
+
+ComposerCheck(){
+    compsf="./composer.phar"
+
+    if [ -f $compsf ]
+    then
+        com_ins="$compsf install"
+        msg i "检测到 $compsf, 准备执行 $com_ins"
+
+        $com_ins
+
+        test $? = 0 && msg i "已成功执行 $com_ins" || msg e "在执行 $com_ins 时遇到错误, 任务终止"
+    fi
+}
 
 WEBActionAdapter(){
     load base
@@ -13,57 +35,63 @@ WEBActionAdapter(){
     load ssh
     load docker
     load kubectl
+    load password
 
-    SSH_HOST="$GFS_HOST"
-    SSH_USER="root"
-    RUN_USER="nobody"
-    OWN_USER="$RUN_USER:$RUN_USER"
+    APP_FILE="$WS/$APP_NAME"
     RSC_OPTS="-av --exclude-from=$RSYNC_EXCLUDE_LIST"
     WEB_ROOT="$GFS_FILES_DIR/$app_prj/$app_env/$ENVIRONMENT_ID/$APP_NAME"
+    WEB_ROOT_DIR="$WWW_ROOT"
 
-    ### NOTE: Disabled by composer ERROR, 2017-07-19
-    # Composer Check
-    #ComposerCheck
+    test -z "$READINESS_URL"     &&     READINESS_URL="$LIVENESS_URL" && msg i "READINESS_URL=$READINESS_URL"
+    test -z "$HC_CHECK_DIR"      &&      HC_CHECK_DIR="public"
+    test -z "$DOCUMENT_ROOT_DIR" && DOCUMENT_ROOT_DIR="$WWW_ROOT/$APP_NAME/$HC_CHECK_DIR"
 
-    if [ "$SKIP_UPLOAD" != "true" ]
+    test "$1" = "composer" && ComposerCheck
+
+    if [ "0" = "0" ]
     then
-        SSH "test -d $WEB_ROOT || mkdir -p $WEB_ROOT"
+        DOCKER_TAG="$SCM_REVISION"
 
-        msg i "准备同步至 GlusterFS: $WEB_ROOT"
+        msg i "Processing Pre-Release deployment"
+        msg i "$APP_NAME"
 
-        rsync $RSC_OPTS . $SSH_USER@$SSH_HOST:$WEB_ROOT
+        DockerfileInit
 
-        msg i "更改文件权限"
+        d="Dockerfiles"
+        test -d "$d" || msg e "Directory $d does not exist"
 
-        SSH "chown -R root:root $WEB_ROOT"
-    else
-        msg i "没有文件需要上传"
-    fi
+        vhost="$d/httpd-vhosts.conf"
 
-    if [ ! -z "$CACHE_DIRS" ]
-    then
-        msg i "清除缓存目录: $CACHE_DIRS"
-        for d in $CACHE_DIRS
-        do
-            SSH "rm -rf $WEB_ROOT/$d"
-        done
-    fi
-    
-    if [ ! -z "$WRITE_DIRS" ]
-    then
-        for nbd in $WRITE_DIRS
-        do 
-            msg i "检测是否存在文件夹 $nbd"
-            SSH "test -d $WEB_ROOT/$nbd && chown -R nobody:nobody $WEB_ROOT/$nbd"
-        done
-    fi 
+        msg i "Processing $(basename $vhost)"
+        sed -i "s#SERVER_NAME#$SERVER_NAME#g"   $vhost
+        sed -i "s#DOCUMENT_ROOT_DIR#$DOCUMENT_ROOT_DIR#g" $vhost
 
-    if [ "$RESTART_CONTAINER" = "true" ]
-    then
-        DockerfileCopy
+        if [ "$LIVENESS_URL" = "/health_check.php" ]
+        then
+            hcf="$d/$APP_NAME/${HC_CHECK_DIR}${LIVENESS_URL}"
 
-        KubectlPSCD
-    else
-        msg d "成功更新"
+            test -f $hcf || cp -rf $HC_CHECK_FILE $hcf
+        fi
+
+        if [ ! -z "$USE_SHARING_FILES" ]
+        then
+            msg i "Send files to CephFS:$(dirname $WEB_ROOT)/$APP_NAME"
+            rsync $RSC_OPTS $APP_NAME $SSH_USER@$SSH_HOST:$(dirname $WEB_ROOT)
+        else
+            msg i "Copy files to Image"
+        fi
+
+        if [ "$DOCKER_SKIP" != "true" ]
+        then
+            DockerImage Build
+            DockerLogin
+            DockerImage Push
+
+            KubeController
+
+            msg d "Successfully completed deploy $APP_NAME"
+        else
+            msg d "Skip docker"
+        fi
     fi
 }
