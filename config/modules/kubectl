@@ -21,12 +21,8 @@ KubectlGet(){
 KubeController(){
     load replace
 
-    kcs=$WS/Dockerfiles
-
-    test -f $kcs/Deployments.yaml && pod_config="Deployments.yaml"
-
-     f_rc="$kcs/$pod_config"
-    f_svc="$kcs/Service.yaml"
+     f_rc="Deployments.yaml"
+    f_svc="Service.yaml"
 
     check file $f_rc
 
@@ -59,6 +55,9 @@ KubeController(){
         #msg a "Update deployment $PROJECT_NAME image to $DOCKER_IMAGE_NAME:$DOCKER_TAG"
         #kubectl set image deploy/$PROJECT_NAME $PROJECT_NAME=$DOCKER_IMAGE_NAME:$DOCKER_TAG -n $NAMESPACE
 
+        #kubectl apply -f $f_rc
+
+        msg i "Update deployment $PROJECT_NAME"
         kubectl delete -f $f_rc
         kubectl create -f $f_rc
     else

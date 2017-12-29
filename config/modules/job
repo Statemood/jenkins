@@ -1,5 +1,9 @@
 #! /bin/bash
 
+NAMESPACE=
+ APP_NAME=""
+ WEB_ROOT="$GFS_FILES_DIR/$app_prj/$app_env/$ENVIRONMENT_ID/$APP_NAME"
+
 JobActionController(){
     load base
     load file
@@ -8,9 +12,9 @@ JobActionController(){
     load docker
     load kubectl
 
-    POD_CONFIG="$DOCKER_TEMPLATE_DN/Job.yaml"
+    POD_CONFIG="Job.yaml"
 
-    test -f $POD_CONFIG && kubectl delete -f $POD_CONFIG
+    test -f $POD_CONFIG && sudo kubectl delete -f $POD_CONFIG
 
     DockerfileInit
 

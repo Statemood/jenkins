@@ -1,0 +1,77 @@
+#! /bin/bash
+
+NODE_NPM_DL_PATH="."
+ NODE_SERVER_DIR=""
+NODE_SERVER_USER=""
+   NODE_WEB_ROOT="$NODE_SERVER_DIR"
+
+NODE_VERSION="v6.11.0-linux"
+   NODE_PATH="$(dirname $CONFIG_DIR)/tools/node"
+    NPM_PATH="$NODE_PATH"
+    CNPM_BIN="$NPM_PATH/bin/cnpm"
+NPM_REGISTRY="https://registry.npm.taobao.org"
+ NPM_OPTIONS="cnpm --registry=$NPM_REGISTRY"
+
+ APP_PORT=3333
+ APP_FILE="."
+ APP_NAME=""
+
+LOG_REDIS_SERVER="redis-log.db.svc:6379"
+
+node_npm_install(){
+    git submodule update --init --recursive
+    msg i "Start cnpm install"
+    $CNPM_BIN install
+}
+
+node_build(){
+    case $1 in
+        webpack)
+            # build
+            git submodule update --init --recursive
+            webpack_js=./node_modules/webpack/bin/webpack.js
+
+            test -f $webpack_js || msg error "File not found: $webpack_js"
+            $webpack_js
+
+            test $? != 0 && msg error "build failed"
+            ;;
+    esac
+}
+
+NodeProjectController(){
+    load base
+    load file
+    load check
+    load ssh
+    load docker
+    load kubectl
+
+    DOCKER_TAG="$SCM_REVISION"
+    WEB_ROOT_DIR=""
+
+    ssh $JKS_MASTER_HOST "grep -q 'Started by upstream project' $BUILD_LOG"
+    if [ $? = 0 ]
+    then
+        msg i "Triggered by upstream project automatically, RESTART CONTAINER"
+    fi
+
+    if [ -f "package.json" ]
+    then
+        msg i "Detected file package.json, preparing to execute $npm_install"
+
+        node_npm_install
+
+        info_succ="Successfully completed command npm install"
+        info_erro="An Error occurred during the command npm install"
+
+        test $? = 0 && msg i "$info_succ" || msg e "$info_erro"
+    fi
+
+    DockerfileInit
+
+    DockerImage Build
+    DockerImage Push
+
+    KubeController
+}

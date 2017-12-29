@@ -11,26 +11,14 @@ SCP(){
     # SCP local-file remote-path
     test -z "$2" && msg error "require argument"
     test -f "$1" || msg error "File $1 not found"
-    
+
     scp -P $SSH_PORT -l $SCP_SPEED $1 $SSH_USER@$SSH_HOST:$2
 }
 
 RSync(){
-    #rsync_exclude_t="`mktemp $TEMP_DIR/XXXXXXXX`"
-    #cp -f $RSYNC_EXCLUDE_LIST $rsync_exclude_t
-    #RSYNC_EXCLUDE_LIST=$rsync_exclude_t
-        
-    #if [ ! -z "$RSYNC_EXCULDE_EXTRA_FILES" ]
-    #then
-    #    for i in $RSYNC_EXCULDE_EXTRA_FILES
-    #    do
-    #        echo "$i" >> $RSYNC_EXCLUDE_LIST
-    #    done
-    #fi
-    
     test -z "$1" && msg e "RSync: Require argument"
-    rsync $RSC_OPTS $1 $SSH_USER@$SSH_HOST:$WEB_ROOT 
-    #remove $rsync_exclude_t > /dev/null
+    echo "rsync $RSC_OPTS $1 $SSH_USER@$SSH_HOST:$WEB_ROOT"
+    rsync $RSC_OPTS $1 $SSH_USER@$SSH_HOST:$WEB_ROOT
 }
 
 
@@ -38,25 +26,12 @@ GET(){
     # GET remote-path local-path
     test -z "$2" && msg error "require argument"
 
-    local_dir="$(dirname $2)" 
+    local_dir="$(dirname $2)"
 
-    if [ "$local_dir" != "." ]   
+    if [ "$local_dir" != "." ]
     then
         test -d $local_dir || mkdir -p $local_dir
     fi
 
     scp -P $SSH_PORT -l $SCP_SPEED $SSH_USER@$SSH_HOST:$1 $2
-}
-
-Server(){
-    case "$1" in
-        alias)
-            if [ -z "$SERVER_ALIAS" ]
-            then
-                SERVER_ALIAS="`echo $SSH_HOST | awk -F '.' '{print $3,$4}' | sed 's/ /./g'`"
-            else
-                echo "$SERVER_ALIAS"
-            fi
-            ;;
-    esac
 }

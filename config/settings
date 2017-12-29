@@ -1,5 +1,6 @@
 #! /bin/bash
 
+
 umask 022
 
 CONFIG_DIR=/data/app/jenkins/config
@@ -27,9 +28,12 @@ esac
 
 test -d $TMP_DIR || mkdir -p $TMP_DIR
 
+
 BUILDS_DIR=$JENKINS_HOME/jobs/$JOB_NAME/builds
+
 BUILD_LOG=$BUILDS_DIR/$BUILD_NUMBER/log
-#test -f "$BUILD_LOG" && BUILD_USER=`head -1 $BUILD_LOG | awk -F '0m' '{print $2}'`
+
+test -f "$BUILD_LOG" && BUILD_USER=`head -1 $BUILD_LOG | awk -F '0m' '{print $2}'`
 
 GENV_FILE_NAME=$TMP_DIR/${JOB_NAME}_${BUILD_NUMBER}
 
@@ -44,51 +48,69 @@ APP_SUB_C="`echo $APP_SUB | awk -F '-' '{print $3}'`"
 APP_SUB_D="`echo $APP_SUB | awk -F '-' '{print $4}'`"
 APP_SUB_E="`echo $APP_SUB | awk -F '-' '{print $5}'`"
 
-echo "$APP_ENV" | egrep -q "DEV|QA|PD"
-
-if [ $? != 0 ] || [ -z "$APP_ENV" ]
-then
-    echo $Environment | egrep -q "DEV|QA|PD"
-    test $? = 0 && APP_ENV=$Environment
-fi
-
 app_env="`echo $APP_ENV  | tr A-Z a-z`"
 app_prj="`echo $APP_PRJ  | tr A-Z a-z `"
 app_sub="`echo $APP_SUB  | tr A-Z a-z | sed 's/-/_/g'`"
 
 PROJECT_CONFIG_DIR=$CONFIG_DIR/project/$app_prj/$app_sub
 
+DOMAIN=""
+
 ### Jenkins
 JKS_RUN_USER="jenkins"
 
 # SSH/SCP Settings
- SSH_USER="jenkins"
+ SSH_USER=jenkins
  SSH_PORT=22
  SSH_OPTS=
-SCP_SPEED=51200   # 50M
 
-RSYNC_EXCLUDE_LIST="$CONFIG_DIR/rsync-exclude.list"
+# Speed limit 5M/s
+SCP_SPEED=51200
 
-# PHP
-PHP="/usr/local/php/bin/php"
+RSYNC_EXCLUDE_LIST=$CONFIG_DIR/rsync-exclude.list
 
-# WEB RUN USER
- WEB_USER="nobody"
-WEB_GROUP="nobody"
+##### For Kubernetes
+# Resource limits
+LIMIT_MIN_CPU="100m"
+LIMIT_MAX_CPU="350m"
 
-# Tomcat
+LIMIT_MIN_MEM="256Mi"
+LIMIT_MAX_MEM="512Mi"
+
+### HEALTH CHECK
+# Default settings
+LIVENESS_URL="/"
+LIVENESS_IDS=30
+LIVENESS_TIMEOUT=5
+
+# readinessProbe
+READINESS_URL=""
+READINESS_IDS=15
+READINESS_TIMEOUT=5
+#####
+
+HC_CHECK_FILE="$CONFIG_DIR/project/web/health_check.php"
+
+USING_DOCKERFILES="$CONFIG_DIR/project/using-dockerfiles/$app_prj-$app_env/$APP_SUB"
+
+PHP=/usr/local/php/bin/php
+
+##### WEB RUN USER
+# For php & httpd & nginx
+ WEB_USER=nobody
+WEB_GROUP=nobody
+
+# WEB PATH
+WWW_ROOT=
 
    TOMCAT_HOME=/usr/local/tomcat
 TOMCAT_WEBAPPS=$TOMCAT_HOME/webapps
-
-# Sensitive Resources
-SENSITIVE_RESOURCES="^\.svn|^\.git|\.bak$|backup$|\.tar$|\.rar$|\.gz$|\.tgz$|\.zip$|\.exe$|\.log$"
 
 # Users Chack
  PERMISSION_DIR_USERS=$CONFIG_DIR/permission/users
 PERMISSION_DIR_GROUPS=$CONFIG_DIR/permission/groups
 
-ALWAYS_ALLOWED_GROUPS="ops-core qa"
+ALWAYS_ALLOWED_GROUPS="ops-core"
         ALLOWED_USERS=""
 
 load(){

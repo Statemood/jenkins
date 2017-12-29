@@ -1,14 +1,16 @@
 #! /bin/bash
 
+
 APP_PORT=8080
-SSH_USER=""
-SSH_HOST=""
+
+ WEBAPPS_DIR="$GFS_FILES_DIR/$app_prj/$app_env/webapps/$APP_SUB"
+TEMPLATE_DIR="/data/dockerfiles/$app_prj/$app_env/Dockerfiles"
 
 LIMIT_MIN_CPU="400m"
 LIMIT_MAX_CPU="600m"
 
-LIMIT_MIN_MEM="256Mi"
-LIMIT_MAX_MEM="2048Mi"
+LIMIT_MIN_MEM="768Mi"
+LIMIT_MAX_MEM="1024Mi"
 
 # liveness initial delay seconds
 LIVENESS_IDS=180
@@ -18,13 +20,9 @@ LIVENESS_TIMEOUT=3
 
 READINESS_IDS=60
 
-JavaProjectController(){
-# Usage:
-#
-# load java
-#
-# JavaProjectController
+LOG_REDIS_SERVER="redis-log.db.svc:6379"
 
+JavaController(){
     load base
     load file
     load check
@@ -32,24 +30,27 @@ JavaProjectController(){
     load maven
     load docker
     load kubectl
+    load password
 
-    REMOVE_FILES="$DOCKER_TEMPLATE_DN"
+      DOCKER_TAG="$SCM_REVISION"
     WEB_ROOT_DIR="$TOMCAT_WEBAPPS"
 
-    test -z "$DOCKER_TAG"       &&    DOCKER_TAG="$SCM_REVISION"
-    test -z "$READINESS_URL"    && READINESS_URL="$LIVENESS_URL"
-    test -z "$REMOVE_FILES"     &&         remove $REMOVE_FILES
+    JAVA_MIN_MEM="`echo $LIMIT_MIN_MEM | tr -s 'Mi' 'm' | tr -s 'Gi' 'g'`"
+    JAVA_MAX_MEM="`echo $LIMIT_MAX_MEM | tr -s 'Mi' 'm' | tr -s 'Gi' 'g'`"
 
-    if [ "$MVN_SKIP" != "true" ]
-    then
-        MavenActionAdapter
-    else
-        msg i "Skipped maven build"
-    fi
+    JAVA_MAX_MEM="`echo $(echo $JAVA_MAX_MEM | tr -s "a-z" " ") - 128 | bc`m"
+
+    test -z "$DOCKER_TAG"       && DOCKER_TAG="$SVN_REVISION"
+    test -z "$READINESS_URL"    && READINESS_URL="$LIVENESS_URL" && msg i "READINESS_URL=$READINESS_URL"
+    test -z "$APP_CONFIG_DIR"   && APP_CONFIG_DIR="basis/$APP_SUB"
+    test -z "$CONFIG_DIR_NAME"  && CONFIG_DIR_NAME="$(basename $APP_CONFIG_DIR)"
+
+    test "$MVN_SKIP" != "true"  && MavenActionAdapter || msg i "Skipped maven build"
 
     if [ "$DOCKER_SKIP" != "true" ]
     then
         DockerfileInit
+
         DockerImage Build
         DockerImage Push
     fi

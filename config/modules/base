@@ -14,3 +14,20 @@ msg(){
         a|attention)  msg_print "ATTENTION: $2" &&  return 0 ;;
     esac
 }
+
+Time(){
+    case $1 in
+        Point)
+            timepoint_f="`mktemp $TEMP/XXXXXXXXXXXX`"
+
+            case $2 in
+                a|start)    echo "`date +%s`" >  $timepoint_f   ;;
+                b|stop)     echo "`date +%s`" >> $timepoint_f   ;;
+                c|used)
+                            echo "`tail -1 $timepoint_f` - `head -1 $timepoint_f`" | bc
+                            remove $timepoint_f
+                            ;;
+            esac
+            ;;
+    esac
+}

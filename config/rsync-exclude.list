@@ -11,6 +11,12 @@
 *.tar
 *.tgz
 *.gz
+etc
+Dockerfiles
 data/log
 data/cache
-log
+data/template
+data/attachment/common
+dev_html
+mfschunk
+source/plugin
