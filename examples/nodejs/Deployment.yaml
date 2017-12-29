@@ -1,0 +1,61 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+
+metadata:
+    name: PROJECT_NAME
+    namespace: NAMESPACE
+
+spec:
+    replicas: REPLICAS_NUM
+    template:
+        metadata:
+            labels:
+                app: PROJECT_NAME
+        spec:
+            nodeSelector:
+                zone: K8S_NODE_ZONE
+            containers:
+            - name: PROJECT_NAME
+              image: registry.my.com/project/APP_PRJ/APP_SUB:DOCKER_TAG
+              imagePullPolicy: Always
+              securityContext:
+                privileged: true
+                seLinuxOptions:
+                  user: system_u
+                  role: object_r
+                  type: fusefs_t
+                  level: "s0:c123,c456"
+              ports:
+              - containerPort: APP_PORT
+              env:
+              - name:  "ENV_NAME"
+                value: "APP_ENV"
+              - name:  "ENV_ID"
+                value: "ENVIRONMENT_ID"
+              - name:  "APPNAME"
+                value: "APP_NAME"
+              - name:  "SUBNAME"
+                value: "APP_SUB"
+              - name:  "PORT"
+                value: "APP_PORT"
+              - name:  "LOG_REDIS_SERVER"
+                value: "LOG_REDIS_SERVER_V"
+              resources:
+                limits:
+                  cpu: LIMIT_MAX_CPU
+                  memory: LIMIT_MAX_MEM
+                requests:
+                  cpu: LIMIT_MIN_CPU
+                  memory: LIMIT_MIN_MEM
+              livenessProbe:
+                tcpSocket:
+                  port: APP_PORT
+                initialDelaySeconds: LIVENESS_IDS
+                timeoutSeconds: LIVENESS_TIMEOUT
+                periodSeconds: LIVENESS_PERIOD
+              readinessProbe:
+                tcpSocket:
+                  port: APP_PORT
+                initialDelaySeconds: READINESS_IDS
+                timeoutSeconds: READINESS_TIMEOUT
+                periodSeconds: READINESS_PERIOD
