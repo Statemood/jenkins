@@ -21,7 +21,7 @@ READINESS_TIMEOUT=$LIVENESS_TIMEOUT
 
 SKIP_SUDO="true"
 
-PaymentController(){
+JavaController(){
     load base
     load file
     load check
