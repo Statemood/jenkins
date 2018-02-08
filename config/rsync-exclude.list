@@ -11,8 +11,9 @@
 *.tar
 *.tgz
 *.gz
+.scannerwork
+.recently_updates.txt
 etc
-Dockerfiles
 data/log
 data/cache
 data/template
@@ -20,3 +21,8 @@ data/attachment/common
 dev_html
 mfschunk
 source/plugin
+Dockerfile
+Dockerfiles
+Deployments.yaml
+Service.yaml
+sonar-project.properties

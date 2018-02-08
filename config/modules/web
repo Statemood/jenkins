@@ -1,67 +1,43 @@
 #! /bin/bash
 
-#########################
-##### For PHP projects  #
-#########################
 # Change owner to nobody
-# For example, cache or log dir
-WRITE_DIRS=""
+WRITE_DIRS="data"
+WRITE_USER="nobody"
+  RUN_USER="www"
+  APP_PORT=8000
+  APP_FILE="."
+  APP_NAME="${APP_SUB}"
 
-APP_PORT=8000
-APP_NAME=""
+     LIVENESS_URL="/health_check.php"
+  LIVENESS_PERIOD=30
+ LIVENESS_TIMEOUT=5
+ READINESS_PERIOD=30
+READINESS_TIMEOUT=5
 
-LIVENESS_URL="/health_check.php"
-LIVENESS_IDS=30
-LIVENESS_TIMEOUT=5
+    LIMIT_MIN_MEM="128Mi"
+    LIMIT_MAX_MEM="256Mi"
 
-WEB_ROOT=""
+      SERVER_NAME="$APP_SUB.$DOMAIN"
 
-SERVER_NAME="$APP_SUB.$DOMAIN"
-LOG_REDIS_SERVER="redis-log.db.svc:6379"
-
-ComposerCheck(){
-    compsf="./composer.phar"
-
-    if [ -f "$compsf" ]
-    then
-        com_ins="$compsf install"
-        msg i "Detected $compsf, preparing to execute $com_ins"
-
-        $com_ins
-
-        info_succ="Successfully executed $com_ins"
-        info_erro="An error occurred during $com_ins"
-        test $? = 0 && msg i "$info_succ" || msg e "$info_erro"
-    fi
-}
+  SUDO_EXTRA_CMDS="-e REPLACEHOSTS,STARTHTTPDSERVER"
 
 WEBActionAdapter(){
     load base
     load file
     load check
     load ssh
+    load sudo
+    load sonar
     load docker
     load kubectl
     load password
-
-    SSH_HOST=""
-    SSH_USER=""
-    RUN_USER="nobody"
-    OWN_USER="$RUN_USER:$RUN_USER"
-    APP_FILE="."
-    RSC_OPTS="-av --exclude-from=$RSYNC_EXCLUDE_LIST"
-    WEB_ROOT="$GFS_FILES_DIR/$app_prj/$app_env/$ENVIRONMENT_ID/$APP_NAME"
-    WEB_ROOT_DIR="$WWW_ROOT"
 
     test -z "$READINESS_URL"     &&     READINESS_URL="$LIVENESS_URL" && msg i "READINESS_URL=$READINESS_URL"
     test -z "$HC_CHECK_DIR"      &&      HC_CHECK_DIR="public"
     test -z "$DOCUMENT_ROOT_DIR" && DOCUMENT_ROOT_DIR="$WWW_ROOT/$APP_NAME/$HC_CHECK_DIR"
 
-    test "$1" = "composer" && ComposerCheck
+    SonarQubeController
 
-    DOCKER_TAG="$SCM_REVISION"
-
-    msg i "Processing Pre-Release deployment"
     msg i "$APP_NAME"
 
     DockerfileInit
@@ -79,15 +55,5 @@ WEBActionAdapter(){
         test -f $hcf || cp -rf $HC_CHECK_FILE $hcf
     fi
 
-    if [ "$DOCKER_SKIP" != "true" ]
-    then
-        DockerImage Build
-        DockerImage Push
-
-        KubeController
-
-        msg d "Successfully completed deploy $APP_NAME"
-    else
-        msg d "Skip docker"
-    fi
+    DockerImageController
 }

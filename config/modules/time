@@ -1,7 +1,0 @@
-TimePoint(){
-    case $1 in
-        start)  time_start=`date +%s`;;
-        stop)    time_stop=`date +%s`;;
-        used)    time_used=`echo $time_stop - $time_start | bc`;;
-    esac
-}

@@ -6,7 +6,9 @@ NODE_SERVER_USER=""
    NODE_WEB_ROOT="$NODE_SERVER_DIR"
 
 NODE_VERSION="v6.11.0-linux"
-   NODE_PATH="$(dirname $CONFIG_DIR)/tools/node"
+   NODE_PATH="$JKS_TOOLS_DIR/tools/node"
+
+test "$OS_KERNEL" = "Darwin" && NODE_PATH="$JKS_TOOLS_DIR/node-v8.9.4-darwin-x64"
     NPM_PATH="$NODE_PATH"
     CNPM_BIN="$NPM_PATH/bin/cnpm"
 NPM_REGISTRY="https://registry.npm.taobao.org"
@@ -16,30 +18,49 @@ NPM_REGISTRY="https://registry.npm.taobao.org"
  APP_FILE="."
  APP_NAME=""
 
-LOG_REDIS_SERVER="redis-log.db.svc:6379"
+  LIVENESS_PERIOD=30
+ LIVENESS_TIMEOUT=7
+ READINESS_PERIOD=30
+READINESS_TIMEOUT=7
 
-node_npm_install(){
-    git submodule update --init --recursive
-    msg i "Start cnpm install"
-    $CNPM_BIN install
+    LIMIT_MIN_MEM="128Mi"
+    LIMIT_MAX_MEM="256Mi"
+
+# Node 项目不需要额外的sudo权限
+SKIP_SUDO=true
+
+NodeNPMInstall(){
+    GitSubmoduleUpdate
+
+    if [ -f package.json ]
+    then
+        msg i "File package.json detected, start npm install"
+
+        $CNPM_BIN install
+        test $? = 0 && msg i "Successfully completed with command npm install" || \
+                       msg e "Command encountered and error with npm install"
+    fi
 }
 
-node_build(){
-    case $1 in
-        webpack)
-            # build
-            git submodule update --init --recursive
-            webpack_js=./node_modules/webpack/bin/webpack.js
+WebpackJSBuild(){
+    GitSubmoduleUpdate
 
-            test -f $webpack_js || msg error "File not found: $webpack_js"
-            $webpack_js
+    webpack_js=./node_modules/webpack/bin/webpack.js
 
-            test $? != 0 && msg error "build failed"
-            ;;
-    esac
+    test -f $webpack_js || msg error "File not found: $webpack_js"
+    if [ "$OS_KERNEL" = "Darwin" ]
+    then
+        msg i "OS $OS_KERNEL, Start npm run build"
+        npm run build
+    else
+        msg i "Start webpack"
+        $webpack_js
+    fi
+
+    test $? != 0 && msg error "build failed"
 }
 
-NodeProjectController(){
+NJSPController(){
     load base
     load file
     load check
@@ -47,31 +68,10 @@ NodeProjectController(){
     load docker
     load kubectl
 
-    DOCKER_TAG="$SCM_REVISION"
     WEB_ROOT_DIR=""
 
-    ssh $JKS_MASTER_HOST "grep -q 'Started by upstream project' $BUILD_LOG"
-    if [ $? = 0 ]
-    then
-        msg i "Triggered by upstream project automatically, RESTART CONTAINER"
-    fi
+    NodeNPMInstall
 
-    if [ -f "package.json" ]
-    then
-        msg i "Detected file package.json, preparing to execute $npm_install"
-
-        node_npm_install
-
-        info_succ="Successfully completed command npm install"
-        info_erro="An Error occurred during the command npm install"
-
-        test $? = 0 && msg i "$info_succ" || msg e "$info_erro"
-    fi
-
-    DockerfileInit
-
-    DockerImage Build
-    DockerImage Push
-
+    DockerImageController
     KubeController
 }

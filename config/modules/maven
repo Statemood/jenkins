@@ -3,7 +3,7 @@
 # Settings
 
 MAVEN_VERSION="apache-maven-3.3.9"
-   MAVEN_HOME="/data/app/jenkins/tools/$MAVEN_VERSION"
+   MAVEN_HOME="$JKS_TOOLS_DIR/$MAVEN_VERSION"
     MAVEN_CMD="$MAVEN_HOME/bin/mvn"
 
 test -z "$MAVEN_OPTS" && MAVEN_OPTS="-U clean -Dmaven.test.skip=true package dependency:tree"
@@ -12,22 +12,26 @@ MAVEN_ARCHIVE_DIR=Archive/$APP_PRJ/$APP_SUB/`date +%Y/%m/%d`
 MAVEN_ARCHIVE_EXPIRES=15
 
 MavenActionAdapter(){
+    test "$SKIP_MVN" = "true"   && \
+    msg i "Skip maven build"    && \
+    return 0
+
     MavenBuild
 }
 
 MavenArchiveController(){
      maven_archive_target=$PKG_FILE
-    archive_saved_to_name=$JKS_DL_DIR/$MAVEN_ARCHIVE_DIR/$BUILD_NUMBER-$(basename $maven_archive_target)         
+    archive_saved_to_name=$JKS_DL_DIR/$MAVEN_ARCHIVE_DIR/$BUILD_NUMBER-$(basename $maven_archive_target)
           old_archive_dir=$JKS_DL_DIR/$MAVEN_ARCHIVE_DIR/`date -d "$MAVEN_ARCHIVE_EXPIRES days ago" ++%Y/%m/%d`
                      astd=$(dirname $archive_saved_to_name)
     if [ ! -d $astd ]
-    then 
+    then
         mkdir -p $astd
         msg i "Created dir $astd"
     fi
 
     test -f "$maven_archive_target" && cp -rf $maven_archive_target $archive_saved_to_name
-            
+
     msg i "Maven Project Archived to:  $archive_saved_to_name"
     msg i "Maven Project Archived URL: $JKS_DL_URL/$MAVEN_ARCHIVE_DIR/$(basename $archive_saved_to_name)"
     #msg i "Maven Project Archived MD5: `md5sum $archive_saved_to_name | awk '{print $1}'`"
@@ -51,8 +55,8 @@ MavenBuild(){
     msg i "Using $MAVEN_VERSION"
     msg i "With maven options: $MAVEN_OPTS"
     $MAVEN_CMD $MAVEN_OPTS
-    
-    test $? != 0 && msg error "Failed to build, aborted"     
+
+    test $? != 0 && msg error "Failed to build, aborted"
 
     #check exist $APP_FILE
 }

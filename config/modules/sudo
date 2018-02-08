@@ -1,0 +1,43 @@
+#! /bin/bash
+
+# 根据指定参数动态生成并输出sudo配置指令
+GenSudoSettings(){
+    for arg in "$@"
+    do
+        case $arg in
+            -u)     sudo_user=$2
+                    shift 2
+                    ;;
+            -d)     target_dirs="$2"
+                    shift 2
+                    ;;
+            -e)     extra_cmnds="$2"
+                    shift 2
+                    ;;
+            -p)     target_path="$2"
+                    shift 2
+                    ;;
+        esac
+    done
+  
+    test -z "$WRITE_GROUP" && WRITE_GROUP="$WRITE_USER"
+
+    cmnd_names=
+  
+    if [ ! -z "$target_dirs" ]
+    then  
+        for i in $target_dirs
+        do
+            td="$target_path/$i"
+
+            cmnd_name="SUDOCMD`echo $i | tr a-z A-Z | sed 's#/##g'`"
+            cmnd_names="$cmnd_name,$cmnd_names"
+            echo "echo \"Cmnd_Alias $cmnd_name = $SUDO_COMMANDS $WRITE_USER.$WRITE_GROUP $td\" >> /etc/sudoers" 
+        done
+        test -z "$extra_cmnds" || cmnd_names="$cmnd_names$extra_cmnds" || cmnd_names="`echo $cmnd_names | sed 's/,$//'`" 
+    else
+        cmnd_names="$extra_cmnds"
+    fi
+
+    echo "echo \"$sudo_user ALL=(ALL) NOPASSWD: $cmnd_names\" >> /etc/sudoers"
+}

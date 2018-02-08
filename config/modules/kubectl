@@ -1,12 +1,8 @@
 #! /bin/bash
 
-### Default Settings
-# eg.: node-qa
-#PROJECT_NAME="$app_prj-$APP_SUB-$SERVER_ID"
-
-NAMESPACE="$app_prj-$app_env"
-test -z "$APP_NAME"     && APP_NAME="$APP_SUB"
-test -z "$REPLICAS_NUM" && REPLICAS_NUM=1
+test -z "$PROJECT_NAME" && PROJECT_NAME="$APP_SUB-$ENVIRONMENT_ID"
+test -z "$NAMESPACE"    &&    NAMESPACE="$app_prj-$app_env"
+test -z "$APP_NAME"     &&     APP_NAME="$APP_SUB"
 
 KubectlGet(){
     case $1 in
@@ -19,6 +15,10 @@ KubectlGet(){
 }
 
 KubeController(){
+    test "$SKIP_KUBE" = "true"  && \
+    msg i "Skip KubeController" && \
+    return 0
+
     load replace
 
      f_rc="Deployments.yaml"
@@ -48,22 +48,24 @@ KubeController(){
     fi
 
     msg i "Check deployment $PROJECT_NAME"
-    KubectlGet deploy | grep -q "$PROJECT_NAME"
-
+    KubectlGet deploy | grep -q "$PROJECT_NAME "
     if [ $? = 0 ]
     then
-        #msg a "Update deployment $PROJECT_NAME image to $DOCKER_IMAGE_NAME:$DOCKER_TAG"
-        #kubectl set image deploy/$PROJECT_NAME $PROJECT_NAME=$DOCKER_IMAGE_NAME:$DOCKER_TAG -n $NAMESPACE
+        if [ "$DEPLOY_CREATE_OR_UPDATE" != "create" ]
+        then
+            msg a "Update Deployment $PROJECT_NAME set image to  $DOCKER_IMAGE_NAME:$DOCKER_TAG"
+            kubectl set image deploy/$PROJECT_NAME $PROJECT_NAME=$DOCKER_IMAGE_NAME:$DOCKER_TAG -n $NAMESPACE
+        else
+            msg i "Removing Deployment $PROJECT_NAME"
+            kubectl delete -f $f_rc
 
-        #kubectl apply -f $f_rc
-
-        msg i "Update deployment $PROJECT_NAME"
-        kubectl delete -f $f_rc
-        kubectl create -f $f_rc
+            msg i "Creating Deployment $PROJECT_NAME"
+            kubectl create -f $f_rc
+        fi
     else
-        msg a "Create deployment $PROJECT_NAME"
+        msg a "No results found. Create Deployment $PROJECT_NAME"
         kubectl create -f $f_rc
     fi
 
-    test $? = 0 && msg d "Successfully completed"
+    test $? = 0 && msg d "Successfully completed" || msg e "Failed"
 }

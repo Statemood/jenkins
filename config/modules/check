@@ -17,10 +17,16 @@ check(){
         exist)
             test ! -e "$2" && msg error "No such file or directory: $2" || return 0
             ;;
+        SensitiveResources)
+            for rs in `find . | egrep -i "$SENSITIVE_RESOURCES"`
+            do
+                remove "$rs"
+            done
+            ;;
         user|users|Permission)
             case $APP_ENV in
                 DEV)    ALLOWED_USERS="`echo ${APP_ENV}-${APP_OBJ} | tr A-Z a-z`" ;;
-                QA|UAT) ALLOWED_USERS="qa"  ;;
+                QA)     ALLOWED_USERS="qa"  ;;
                 PD|PRE) ALLOWED_USERS="qa"  ;;
             esac
 

@@ -31,7 +31,7 @@ Nginx(){
 
     for ngx_server in $NGX_HOST
     do
-        SSH_HOST="$IP_10.$ngx_server"
+        SSH_HOST="$ngx_server"
         msg i "Preparing to $1 $WEB_HOST on $SSH_HOST"
 
         SSH "$action"

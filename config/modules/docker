@@ -1,30 +1,25 @@
 #! /bin/bash
 
-# Settings
-      DOCKER_REGISTRY="registry.${DOMAIN}"
-    DOCKER_LOGIN_USER="registry"
-DOCKER_LOGIN_PASSWORD=
-    DOCKER_BUILD_HOST=
-
-    DOCKERFILE_IGNORE="$CONFIG_DIR/.dockerignore"
-     DOCKER_FILES_DIR="/data/dockerfiles/$app_prj/$app_env/$APP_SUB"
- DOCKER_IMAGE_NAME_LC="`echo $APP_SUB | tr A-Z a-z`"
-    DOCKER_IMAGE_NAME="$DOCKER_REGISTRY/project/$app_prj/$APP_SUB"
-    DOCKER_BUILD_OPTS=""
-
-      TEMPLATE_COMMON="/data/dockerfiles/$app_prj/$app_env/Dockerfiles"
-     TEMPLATE_SPECIFY=$(dirname $TEMPLATE_COMMON)/$APP_SUB/Dockerfiles
+# 如果 DOCKER_IMAGE_NAME 为空则定义一个默认变量
+test -z "$DOCKER_IMAGE_NAME" && DOCKER_IMAGE_NAME="$DOCKER_REGISTRY/$app_prj/$APP_SUB"
 
 DockerLogin(){
+    # 登录 Registry
+
     load password
 
     DOCKER_LOGIN_PASSWORD="`Password docker`"
 
     msg i "Login to $DOCKER_REGISTRY"
-    sudo docker login -u $DOCKER_LOGIN_USER -p $DOCKER_LOGIN_PASSWORD $DOCKER_REGISTRY
+    sudo docker login $DOCKER_REGISTRY -u $DOCKER_LOGIN_USER -p $DOCKER_LOGIN_PASSWORD 2> /dev/null
+
+    # 如果登录失败(返回状态不为0)则报错退出
+    test $? = 0 || msg e "Login failed"
 }
 
 DockerImagesList(){
+    # 列出 images
+
     test "$1" = "all" && opts="| grep -v '<none>'" || opts=
     sudo docker images $opts
 }
@@ -42,25 +37,37 @@ DockerImageSize(){
 }
 
 DockerImageBuild(){
+    # Docker image build 函数
     test -z "$DOCKER_TAG"  && DOCKER_TAG="latest"
 
+    # 如果 DOCKER_TAG 中包含 '/'， 则替换为 '-'
     echo "$DOCKER_TAG" | grep -q "/"
-
     test $? = 0 && DOCKER_TAG="`echo $DOCKER_TAG | tr '/' '-'`"
 
     if [ -f "Dockerfile" ]
     then
-        test -z "$DOCKER_IMAGE_NAME"    && msg e "Require docker image name"
+        test -z "$DOCKER_IMAGE_NAME" && msg e "Require docker image name"
 
-        msg i "Build image $DOCKER_IMAGE_NAME:$DOCKER_TAG"
-        msg i "Docker build options: $DOCKER_BUILD_OPTS"
-        sudo docker build $DOCKER_BUILD_OPTS -t $DOCKER_IMAGE_NAME:$DOCKER_TAG .
-        test $? = 0 && msg i "Successfully completed build image" || msg e "Failed to build image"
+        if [ -z "$DOCKER_IMAGE_EXIST_CHECK" ]
+        then
+            DockerImagesList | grep "$app_prj/$APP_SUB " | grep -q "$DOCKER_TAG "
+            diecs="$?"
+        else
+            diecs="1"
+        fi
+        if [ "$diecs" = "0" ]
+        then
+            msg i "Docker image $DOCKER_IMAGE_NAME:$DOCKER_TAG already exist. Skipped docker build."
+        else
+            msg i "Build image $DOCKER_IMAGE_NAME:$DOCKER_TAG"
+            msg i "Docker build options: $DOCKER_BUILD_OPTS"
+            sudo docker build $DOCKER_BUILD_OPTS -t $DOCKER_IMAGE_NAME:$DOCKER_TAG .
+            test $? = 0 && msg i "Successfully completed build image" || msg e "Failed to build image"
 
-        msg i "Image $DOCKER_IMAGE_NAME size: `DockerImageSize`"
-
+            msg i "Image $DOCKER_IMAGE_NAME size: `DockerImageSize`"
+        fi
     else
-        msg e "File not found: Dockerfile"
+            msg e "File not found: Dockerfile"
     fi
 }
 
@@ -68,6 +75,8 @@ DockerImagePush(){
     DockerLogin
     msg i "Push $DOCKER_IMAGE_NAME:$DOCKER_TAG"
     sudo docker push $DOCKER_IMAGE_NAME:$DOCKER_TAG
+
+    test $? = 0 || msg e "Failed to push docker image"
 }
 
 DockerImage(){
@@ -80,8 +89,11 @@ DockerImage(){
     esac
 }
 
-
 DockerfileInit(){
+    test "$SKIP_DOCKER" = "true"    && \
+    msg i "Skip DockerfileInit"     && \
+    return 0
+
     msg i "Copy Dockerfiles"
 
     if [ -d $TEMPLATE_SPECIFY ] || [ -L $TEMPLATE_SPECIFY ]
@@ -96,19 +108,26 @@ DockerfileInit(){
     # Copy Docker ignore file
     cp $DOCKERFILE_IGNORE .
 
-    test -z "$APP_FILE" && APP_FILE="."
+    test -z "$APP_FILE" && test "$APP_PRJ" = "WEB" && APP_FILE="."
     test -z "$APP_NAME" && APP_NAME="$APP_SUB"
     test -z "$PKG_NAME" || APP_NAME="$PKG_NAME"
 
     f="Dockerfile"
 
+    msg i "Preparing project files"
+
     msg i "Preparing $f"
 
     test -z "$SCM_REVISION"      && SCM_REVISION="$SVN_REVISION"
-    test -z "$USE_SHARING_FILES" || return 0
 
-    DOCKER_LABEL="job.name=$JOB_NAME build.number=$BUILD_NUMBER"
-    DOCKER_LABEL="$DOCKER_LABEL build.user=\"$BUILD_USER\" scm.revision=$SCM_REVISION"
+    DOCKER_LABEL="job.name=$JOB_NAME build.number=$BUILD_NUMBER build.user=\"$BUILD_USER\" scm.revision=$SCM_REVISION"
+
+    if [ -z "$SKIP_SUDO" ]
+    then
+        load sudo
+        sudo_args="-u $RUN_USER -p $WWW_ROOT/$APP_NAME $SUDO_EXTRA_CMDS"
+        echo "RUN `GenSudoSettings $sudo_args -d \"$WRITE_DIRS\" -c \"SUDO_COMMANDS\" | tr '\n' '; '`"   >> $f
+    fi
 
     echo "LABEL $DOCKER_LABEL"                      >> $f
     echo "COPY $APP_FILE $WEB_ROOT_DIR/$APP_NAME"   >> $f
@@ -119,4 +138,13 @@ DockerfileBackup(){
     msg i "Backup Dockerfiles"
     test -d "$USING_DOCKERFILES" || mkdir -p $USING_DOCKERFILES
     rsync -au $f_lists $USING_DOCKERFILES
+}
+
+DockerImageController(){
+    test "$SKIP_DOCKER" = "true"    && \
+    msg i "Skip DockerController"   && \
+    return 0
+
+    DockerImage Build
+    DockerImage Push
 }

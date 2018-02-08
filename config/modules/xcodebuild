@@ -20,27 +20,29 @@ UnlockKeychain(){
     else
         msg error "Failed to unlock keychain: $OSX_KEYCHAIN_AUTH_FILE not found"
     fi
-    
+
     security unlock-keychain -p "$OSX_JENKINS_PASSWORD" $OSX_KEYCHAIN_FILE
     security set-keychain-settings -t 3600 -l $OSX_KEYCHAIN_FILE
 }
 
 XCodeBuild(){
+    test -d $ios_archive_path           || mkdir -p $ios_archive_path
     test -d $(dirname $ios_export_path) || mkdir -p $(dirname $ios_export_path)
-    xcodebuild  -workspace $ios_project_path\
-                -scheme $ios_scheme\
-                -configuration $ios_configuration\
-                -sdk $ios_sdk\
-                CODE_SIGN_IDENTITY="$iOS_DEV_CSI"\
-                PROVISIONING_PROFILE="$iOS_PROVISIONING_PROFILE"\
-                -archivePath ${ios_archive_path}\
+    xcodebuild  -workspace $ios_project_path \
+                -scheme $ios_scheme \
+                -configuration $ios_configuration \
+                CODE_SIGN_IDENTITY="$iOS_DEV_CSI" \
+                PROVISIONING_PROFILE="$iOS_DEV_PROVISIONING_PROFILE" \
+                -archivePath ${ios_archive_path} \
                 clean archive
 
-    xcodebuild  -exportArchive\
-                -archivePath ${ios_archive_path}\
-                PROVISIONING_PROFILE="${iOS_PROVISIONING_PROFILE}"\
-                CODE_SIGN_IDENTITY="${iOS_DEV_CSI}"\
-                -exportPath $ios_export_path 
+    xcodebuild   archive -workspace $ios_project_path \
+                 -scheme $ios_scheme \
+                 -archivePath $ios_archive_path
+
+
+
+    test $? = 0 || msg e "Build failed"
 
     echo -e "Download URLs:"
     echo -e "\t1. $JKS_DL_URL/$iOS_IPA_SAVE_URL"

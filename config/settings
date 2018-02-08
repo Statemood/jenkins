@@ -1,13 +1,17 @@
 #! /bin/bash
 
+# 通用(默认)配置文件，通过bash-slice自动加载到Jenkins每个Shell中
 
-umask 022
+set   +x
+umask 002
 
-CONFIG_DIR=/data/app/jenkins/config
+CONFIG_DIR=$(dirname $0)
 
 WS=$WORKSPACE
 
-case `uname -s` in
+OS_KERNEL="`uname -s`"
+
+case $OS_KERNEL in
     Darwin)
          NODE_OS="OSX"
          TMP_DIR=/tmp/jenkins
@@ -28,7 +32,6 @@ esac
 
 test -d $TMP_DIR || mkdir -p $TMP_DIR
 
-
 BUILDS_DIR=$JENKINS_HOME/jobs/$JOB_NAME/builds
 
 BUILD_LOG=$BUILDS_DIR/$BUILD_NUMBER/log
@@ -37,39 +40,54 @@ test -f "$BUILD_LOG" && BUILD_USER=`head -1 $BUILD_LOG | awk -F '0m' '{print $2}
 
 GENV_FILE_NAME=$TMP_DIR/${JOB_NAME}_${BUILD_NUMBER}
 
+# 如Jenkins 任务名称为 JAVA_Api-Server_DEV,
+#   APP_PRJ=JAVA
+#   APP_SUB=Api-Server
+#   APP_ENV=DEV
+#   app_prj=java
+#   app_sub=api_server
+#   app_env=dev
   APP_PRJ="`echo $JOB_NAME | awk -F '_' '{print $1}'`"
   APP_SUB="`echo $JOB_NAME | awk -F '_' '{print $2}'`"
   APP_ENV="`echo $JOB_NAME | awk -F '_' '{print $3}'`"
   APP_ACT="`echo $JOB_NAME | awk -F '_' '{print $4}'`"
 
-APP_SUB_A="`echo $APP_SUB | awk -F '-' '{print $1}'`"
-APP_SUB_B="`echo $APP_SUB | awk -F '-' '{print $2}'`"
-APP_SUB_C="`echo $APP_SUB | awk -F '-' '{print $3}'`"
-APP_SUB_D="`echo $APP_SUB | awk -F '-' '{print $4}'`"
-APP_SUB_E="`echo $APP_SUB | awk -F '-' '{print $5}'`"
+  app_env="`echo $APP_ENV  | tr A-Z a-z`"
+  app_prj="`echo $APP_PRJ  | tr A-Z a-z `"
+  app_sub="`echo $APP_SUB  | tr A-Z a-z | sed 's/-/_/g'`"
 
-app_env="`echo $APP_ENV  | tr A-Z a-z`"
-app_prj="`echo $APP_PRJ  | tr A-Z a-z `"
-app_sub="`echo $APP_SUB  | tr A-Z a-z | sed 's/-/_/g'`"
+APP_SUB_A="`echo $APP_SUB  | awk -F '-' '{print $1}'`"
+APP_SUB_B="`echo $APP_SUB  | awk -F '-' '{print $2}'`"
+APP_SUB_C="`echo $APP_SUB  | awk -F '-' '{print $3}'`"
+APP_SUB_D="`echo $APP_SUB  | awk -F '-' '{print $4}'`"
+APP_SUB_E="`echo $APP_SUB  | awk -F '-' '{print $5}'`"
 
 PROJECT_CONFIG_DIR=$CONFIG_DIR/project/$app_prj/$app_sub
 
-DOMAIN=""
-
 ### Jenkins
-JKS_RUN_USER="jenkins"
+          DOMAIN="abc.com"
+    JKS_RUN_USER="jenkins"
+      JKS_DL_URL="https://downloads.$DOMAIN/"
+   JKS_DL_URL_19="$JKS_DL_URL"
+JKS_DOWNLOAD_URL="$JKS_DL_URL"
+      JKS_DL_DIR="/data/www/downloads"
+ JKS_DOCKER_HOST="192.168.1.10"
+ JKS_MASTER_HOST="192.168.2.20"
 
-# SSH/SCP Settings
+   JKS_TOOLS_DIR="/data/app/jenkins/tools"
+
+### ssh/scp/rsync Settings
  SSH_USER=jenkins
  SSH_PORT=22
  SSH_OPTS=
 
-# Speed limit 5M/s
+# scp 限速: 5MB/s
 SCP_SPEED=51200
 
+# rsync exclude list
 RSYNC_EXCLUDE_LIST=$CONFIG_DIR/rsync-exclude.list
 
-##### For Kubernetes
+### Kubernetes Settings
 # Resource limits
 LIMIT_MIN_CPU="100m"
 LIMIT_MAX_CPU="350m"
@@ -77,7 +95,7 @@ LIMIT_MAX_CPU="350m"
 LIMIT_MIN_MEM="256Mi"
 LIMIT_MAX_MEM="512Mi"
 
-### HEALTH CHECK
+# HEALTH CHECK
 # Default settings
 LIVENESS_URL="/"
 LIVENESS_IDS=30
@@ -85,32 +103,82 @@ LIVENESS_TIMEOUT=5
 
 # readinessProbe
 READINESS_URL=""
-READINESS_IDS=15
+READINESS_IDS="15"
 READINESS_TIMEOUT=5
-#####
 
-HC_CHECK_FILE="$CONFIG_DIR/project/web/health_check.php"
+K8S_NODE_ZONE="computational"
+
+### Docker Settings
+      DOCKER_REGISTRY=""
+    DOCKER_LOGIN_USER=""
+           DOCKER_TAG="$SCM_REVISION"
+DOCKER_LOGIN_PASSWORD=
+
+    DOCKERFILE_IGNORE="$CONFIG_DIR/.dockerignore"
+     DOCKER_FILES_DIR="/data/dockerfiles/$app_prj/$app_env/$APP_SUB"
+    DOCKER_BUILD_OPTS=""
+
+# Docker/k8s 模版文件路径
+      TEMPLATE_COMMON="$(dirname $DOCKER_FILES_DIR)/Dockerfiles"
+     TEMPLATE_SPECIFY="$(dirname $TEMPLATE_COMMON)/$APP_SUB/Dockerfiles"
+
+case "$APP_ENV" in
+    DEV)
+                PROJECT_NAME="$APP_SUB"
+              ENVIRONMENT_ID=
+            LOG_REDIS_SERVER=""
+            DOCKER_IMAGE_EXIST_CHECK=false
+             DEPLOY_CREATE_OR_UPDATE="create"
+            ;;
+    PD)
+                PROJECT_NAME="$APP_SUB"
+            LOG_REDIS_SERVER=""
+             DOCKER_REGISTRY=""
+              ENVIRONMENT_ID=
+            test -z "$REPLICAS_NUM" && REPLICAS_NUM=2
+            ;;
+    PRE)
+                PROJECT_NAME="$APP_SUB"
+              ENVIRONMENT_ID=
+            LOG_REDIS_SERVER=""
+             DOCKER_REGISTRY=""
+             JKS_MASTER_HOST=""
+            test -z "$REPLICAS_NUM" && REPLICAS_NUM=2
+            ;;
+    QA)
+                    LOG_REDIS_SERVER=""
+            DOCKER_IMAGE_EXIST_CHECK=false
+             DEPLOY_CREATE_OR_UPDATE="create"
+            test -z "$REPLICAS_NUM" && REPLICAS_NUM=1
+            ;;
+esac
+
+HC_CHECK_FILE="$CONFIG_DIR/project/health_check.php"
 
 USING_DOCKERFILES="$CONFIG_DIR/project/using-dockerfiles/$app_prj-$app_env/$APP_SUB"
 
-PHP=/usr/local/php/bin/php
+# sudo
+  SUDO_COMMANDS="/usr/bin/chown -R"
+SUDO_EXTRA_CMDS="-e REPLACEHOSTS"
 
-##### WEB RUN USER
-# For php & httpd & nginx
+# WEB RUN USER
  WEB_USER=nobody
 WEB_GROUP=nobody
 
 # WEB PATH
-WWW_ROOT=
+WWW_ROOT=/www
 
    TOMCAT_HOME=/usr/local/tomcat
 TOMCAT_WEBAPPS=$TOMCAT_HOME/webapps
+
+# Sensitive Resources
+SENSITIVE_RESOURCES="^\.svn|^\.git|\.bak$|backup$|\.tar$|\.rar$|\.gz$|\.tgz$|\.zip$|\.exe$|\.log$"
 
 # Users Chack
  PERMISSION_DIR_USERS=$CONFIG_DIR/permission/users
 PERMISSION_DIR_GROUPS=$CONFIG_DIR/permission/groups
 
-ALWAYS_ALLOWED_GROUPS="ops-core"
+ALWAYS_ALLOWED_GROUPS="ops-core qa"
         ALLOWED_USERS=""
 
 load(){

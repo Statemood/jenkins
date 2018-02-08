@@ -1,0 +1,13 @@
+# For Docker
+
+.git
+.svn
+*/.git
+*/.svn
+.dockerignore
+.scannerwork
+Dockerfile
+Dockerfiles
+Deployments.yaml
+Service.yaml
+sonar-project.properties

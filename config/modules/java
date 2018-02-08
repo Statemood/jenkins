@@ -1,32 +1,32 @@
 #! /bin/bash
 
+     APP_PORT=8080
+ RPOJECT_NAME="$APP_SUB"
 
-APP_PORT=8080
-
- WEBAPPS_DIR="$GFS_FILES_DIR/$app_prj/$app_env/webapps/$APP_SUB"
-TEMPLATE_DIR="/data/dockerfiles/$app_prj/$app_env/Dockerfiles"
-
-LIMIT_MIN_CPU="400m"
-LIMIT_MAX_CPU="600m"
+LIMIT_MIN_CPU="300m"
+LIMIT_MAX_CPU="500m"
 
 LIMIT_MIN_MEM="768Mi"
 LIMIT_MAX_MEM="1024Mi"
 
-# liveness initial delay seconds
-LIVENESS_IDS=180
+test "$APP_ENV" = "PD"  && LIVENESS_IDS=120
+test -z "$LIVENESS_IDS" && LIVENESS_IDS=180
 
-# liveness timeout
-LIVENESS_TIMEOUT=3
+  LIVENESS_PERIOD=20
+ LIVENESS_TIMEOUT=3
 
-READINESS_IDS=60
+    READINESS_IDS=$LIVENESS_IDS
+ READINESS_PERIOD=$LIVENESS_PERIOD
+READINESS_TIMEOUT=$LIVENESS_TIMEOUT
 
-LOG_REDIS_SERVER="redis-log.db.svc:6379"
+SKIP_SUDO="true"
 
-JavaController(){
+PaymentController(){
     load base
     load file
     load check
     load ssh
+    load sonar
     load maven
     load docker
     load kubectl
@@ -40,20 +40,17 @@ JavaController(){
 
     JAVA_MAX_MEM="`echo $(echo $JAVA_MAX_MEM | tr -s "a-z" " ") - 128 | bc`m"
 
-    test -z "$DOCKER_TAG"       && DOCKER_TAG="$SVN_REVISION"
-    test -z "$READINESS_URL"    && READINESS_URL="$LIVENESS_URL" && msg i "READINESS_URL=$READINESS_URL"
-    test -z "$APP_CONFIG_DIR"   && APP_CONFIG_DIR="basis/$APP_SUB"
+    test -z "$APP_CONFIG_DIR"   &&  APP_CONFIG_DIR="dir/$APP_SUB"
     test -z "$CONFIG_DIR_NAME"  && CONFIG_DIR_NAME="$(basename $APP_CONFIG_DIR)"
 
-    test "$MVN_SKIP" != "true"  && MavenActionAdapter || msg i "Skipped maven build"
+    GitSubmoduleUpdate
 
-    if [ "$DOCKER_SKIP" != "true" ]
-    then
-        DockerfileInit
+    MavenActionAdapter
 
-        DockerImage Build
-        DockerImage Push
-    fi
+    SonarQubeController
 
-    test "$KUBECTL_SKIP" = "true" || KubeController
+    DockerfileInit
+    DockerImageController
+
+    KubeController
 }

@@ -1,9 +1,17 @@
 #! /bin/bash
 
-ReplaceKubeFile(){  
+ReplaceKubeFile(){
+    test -z "$READINESS_URL"        && READINESS_URL="$LIVENESS_URL" && msg i "READINESS_URL=$READINESS_URL"
+
+    test -z "$READINESS_PERIOD"     && READINESS_PERIOD="$LIVENESS_PERIOD"
+    test -z "$READINESS_TIMEOUT"    && READINESS_TIMEOUT="$LIVENESS_TIMEOUT"
+
+    test -z "$IMAGE_PULL_SECRET"    && IMAGE_PULL_SECRET="registry-$app_prj"
+
+    # 替换 RC/SVC 文件
     msg a "Replacing rc/svc files"
 
-    # 如任务 WEB_api_QA
+                                                                # 如任务 WEB_api_QA
     sed -i "s/APP_PRJ/$app_prj/g"                   $f_lists    # app_prj=web
     sed -i "s/APP_SUB/$APP_SUB/g"                   $f_lists    # APP_SUB=api
     sed -i "s/APP_ENV/$app_env/g"                   $f_lists    # app_env=qa
@@ -16,15 +24,22 @@ ReplaceKubeFile(){
     sed -i "s/K8S_NODE_ZONE/$K8S_NODE_ZONE/"        $f_lists    # zone
     sed -i "s/ENVIRONMENT_ID/$ENVIRONMENT_ID/g"     $f_lists    # 21 or 22
 
+    sed -i "s/DOCKER_REGISTRY/$DOCKER_REGISTRY/g"       $f_lists
+    sed -i "s/IMAGE_PULL_SECRET/$IMAGE_PULL_SECRET/g"   $f_lists
+
+    sed -i "s#LOG_REDIS_SERVER2_V#$LOG_REDIS_SERVER2#"  $f_lists
+
     sed -i "s#LOG_REDIS_SERVER_V#$LOG_REDIS_SERVER#"    $f_lists    # For Filebeat
     sed -i "s#WRITE_DIRS#$WRITE_DIRS#"                  $f_lists    #
 
+    sed -i "s/LIVENESS_HTTPCODE/$LIVENESS_HTTPCODE/g"   $f_lists    # http code for hc
     sed -i "s#LIVENESS_URL#$LIVENESS_URL#"              $f_lists    # livenessProbe
     sed -i "s/LIVENESS_IDS/$LIVENESS_IDS/"              $f_lists    # livenessProbe initialDelaySeconds
     sed -i "s/LIVENESS_TIMEOUT/$LIVENESS_TIMEOUT/"      $f_lists    # livenessProbe timeout
 
     sed -i "s/LIVENESS_PERIOD/$LIVENESS_PERIOD/"        $f_lists    # livenessProbe Period Seconds
 
+    sed -i "s/READINESS_HTTPCODE/$READINESS_HTTPCODE/g" $f_lists
     sed -i "s#READINESS_URL#$READINESS_URL#"            $f_lists  # readinessProbe
     sed -i "s/READINESS_IDS/$READINESS_IDS/"            $f_lists  # readinessProbe initialDelaySeconds
     sed -i "s/READINESS_TIMEOUT/$READINESS_TIMEOUT/"    $f_lists  # readinessProbe timeout
@@ -42,6 +57,6 @@ ReplaceKubeFile(){
     sed -i "s/LIMIT_MIN_MEM/$LIMIT_MIN_MEM/g"       $f_lists
     sed -i "s/LIMIT_MAX_MEM/$LIMIT_MAX_MEM/g"       $f_lists
 
-    sed -i "s/JAVA_MIN_MEM/$JAVA_MIN_MEM/g"       $f_lists
-    sed -i "s/JAVA_MAX_MEM/$JAVA_MAX_MEM/g"       $f_lists
+    sed -i "s/JAVA_MIN_MEM/$JAVA_MIN_MEM/g"         $f_lists
+    sed -i "s/JAVA_MAX_MEM/$JAVA_MAX_MEM/g"         $f_lists
 }

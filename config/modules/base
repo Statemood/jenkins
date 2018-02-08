@@ -31,3 +31,8 @@ Time(){
             ;;
     esac
 }
+
+GitSubmoduleUpdate(){
+    msg i "Start git submodule update"
+    git submodule update --init --recursive
+}

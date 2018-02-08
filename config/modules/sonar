@@ -1,0 +1,39 @@
+#! /bin/bash
+
+SONAR_SCANNER_PATH="$JKS_TOOLS_DIR/sonar-scanner"
+ SONAR_SCANNER_CMD="$SONAR_SCANNER_PATH/bin/sonar-scanner"
+
+GenerateProjectProperties(){
+    sppf="sonar-project.properties"
+
+    msg i "Generate $sppf"
+
+    echo "sonar.projectKey=${app_prj}_${app_sub}_${app_env}"  > $sppf
+    echo "sonar.projectName=${JOB_NAME}"                     >> $sppf
+    echo "sonar.projectVersion=$SCM_REVISION"                >> $sppf
+    echo "sonar.sources=."                                   >> $sppf
+}
+
+SonarScanner(){
+    msg i "Start SonarQubeScanner, options: $SONARQUBE_OPTIONS"
+
+    $SONAR_SCANNER_CMD $SONARQUBE_OPTIONS
+
+    test $? = 0 || msg e "Sonar Scanner Failed"
+}
+
+SonarQubeScanner(){
+    case $1 in
+         Run)   SonarScanner                ;;
+        GSPP)   GenerateProjectProperties   ;;
+    esac
+}
+
+SonarQubeController(){
+    test "$SKIP_SONARSCANNER" = "true"    && \
+    msg i "Skip SonarQubeScanner"         && \
+    return 0
+
+    SonarQubeScanner GSPP
+    SonarQubeScanner Run
+}
