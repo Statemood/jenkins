@@ -1,5 +1,7 @@
 #! /bin/bash
 
+export PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/sbin:/bin"
+
 header='test -f /data/app/jenkins/config/settings && . /data/app/jenkins/config/settings || exit 1'
 script="$2"
 

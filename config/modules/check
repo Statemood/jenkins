@@ -69,20 +69,5 @@ check(){
 
             test $rt_code != 0 && msg error "Detected failure in last step || return 0"
             ;;
-        http)
-            case "$2" in
-                code)
-
-                    msg done "Check http not ready. Skipped"
-                    require_code=$3
-                     request_url="$4"
-
-                    test -z "$require_code"  && msg e "check http: Missing argument"
-                    test -z "$request_url"   && msg e "check http: Missing argument"
-                    test -z "$CURL_TIME_OUT" && CURL_TIME_OUT=5
-                    http_code=`curl -IL --time-out=$CURL_TIME_OUT $request_url -w %{http_code} | tail -1`
-                    ;;
-            esac
-            ;;
     esac
 }
