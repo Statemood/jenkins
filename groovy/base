@@ -1,0 +1,22 @@
+#! /usr/bin/env groovy
+
+# ------------------------------------------
+# Project jenkins
+#       https://github.com/Statemood/jenkins
+#
+# Lin Ru Lin.Ru@msn.com
+# ------------------------------------------
+
+def msg(){}
+
+def GenYaml(){}
+
+def GenDockerfile(){}
+
+def Check(){}
+
+def Compile(){}
+
+def Stage(){}
+
+return this
